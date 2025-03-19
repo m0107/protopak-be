@@ -1,0 +1,26 @@
+node_modules
+# package-lock.json
+.env
+receipts
+SampleReceipts
+/test/betbhai/*
+/test/betbhai
+/test/reconcile/deposit/merged-sheets/
+/test/reconcile/deposit/output/
+/test/reconcile/deposit/temp/
+/test/reconcile/withdrawal/merged-sheets/
+/test/reconcile/withdrawal/output/
+/test/reconcile/reconcile-old/deposit/merged-sheets/
+/test/reconcile/reconcile-old/deposit/output/
+/test/reconcile/reconcile-old/withdrawal/merged-sheets/
+/test/reconcile/reconcile-old/withdrawal/output/
+/logs
+# /public
+.vscode
+# public/*
+# public
+newrelic_agent.log
+winston_logs
+arbaazReadme.md
+test/findRecords/
+keys/

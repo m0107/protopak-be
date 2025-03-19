@@ -1,0 +1,446 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Deploy the ECS Service
+
+Parameters:
+  Environment:
+    Type: String
+    Description: (Required) The environment that this is deploying to
+    Default: staging
+    AllowedValues:
+      - staging
+      - prod
+      - prod-office-two
+      - prod-office-three
+      - prod-office-five
+      - prod-office-six
+      - prod-office-seven
+      - daddybet
+      - dashboard-v2
+  Image: 
+    Type: String
+    Description: The docker image to run
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC ID
+
+  AlertTopic:
+    Type: String
+    Description: Alert Topic
+    Default: ""
+
+  LoadBalancerListenerArn: 
+    Type: String
+    Description: The ARN of the load balancer
+
+  EFSId:
+    Type: String
+    Description: The id of the EFS
+  
+  EnvFileLocationArn:
+    Type: String
+    Description: The env file location of the Arn
+
+  ServicePort:
+    Type: String
+    Description: The Port on which the container runs
+    Default: "80"
+
+  TaskName:
+    Type: String
+    Description: The name of the task
+    
+  ClusterName:
+    Type: String
+    Description: The name of the ECS Cluster
+
+  PrivateSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: The ID of the private subnets
+    Default: subnet-0151b6981d7aa5913, subnet-0903fe22aeb68f517
+
+  DesiredCount:
+    Type: String
+    Description: Desired Count of task in services
+    Default: 1
+
+  RetentionInDays: 
+    Type: String
+    Description: Retention in Days
+    Default: 731 
+
+  DeregistrationDelay: 
+    Type: String
+    Description: Deregistration delay for target group 60
+
+  HostHeader:
+    Type: String
+    Description: Host Header value
+
+  Priority:
+    Type: String
+    Description: Proiority
+
+  ContainerSecurityGroupId:
+    Type: String
+    Description: String
+
+  ExecutionRoleArn:
+    Type: String
+    Description: Execution Role ARN
+
+  TaskRoleArn:
+    Type: String
+    Description: Task Role ARN
+
+  HealthCheckPath:
+    Type: String
+    Description: Health Check Path
+    Default: /health
+
+  ProjectTagValue:
+    Type: String
+    Description: The name of the project
+    
+  ServiceTagValue:
+    Type: String
+    Description: The name of the service
+
+  CPU:
+    Type: String
+    Description: CPU of the container
+    Default: 256
+
+  Memory:
+    Type: String
+    Description: Memory of the container
+    Default: 1024
+
+  LoadBalancerARN:
+    Type: String
+    Description: The ARN of the load balancer
+
+  LoadBalancerFullName:
+    Type: String
+    Description: The Full Name of the load balancer
+
+  FargateTaskCPUPerecentThreshold:
+    Type: String
+    Description: The CPU Percent threshold of the task
+    Default: 70
+
+  FargateTaskMemoryPerecentThreshold:
+    Type: String
+    Description: The CPU Percent threshold of the task
+    Default: 70
+
+Conditions: 
+  CreateAlerts: !Not
+    - !Equals 
+      - !Ref AlertTopic
+      - ''
+
+Resources:
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties: 
+      ContainerDefinitions: 
+        - Cpu: !Ref CPU
+          # EntryPoint: 
+          #   - String
+          # Environment: 
+          EnvironmentFiles: 
+            - Value: !Ref EnvFileLocationArn
+              Type: s3
+          Image: !Ref Image
+          LinuxParameters:
+            InitProcessEnabled: true
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-region: !Ref AWS::Region
+              awslogs-group: !Ref LogGroup
+              awslogs-stream-prefix: ecs
+          Memory: !Ref Memory
+          # MemoryReservation: Integer
+          MountPoints:
+            - ContainerPath: /dataefs
+              SourceVolume: data-vol
+          Name: !Ref TaskName
+          PortMappings: 
+            - ContainerPort: !Ref ServicePort
+          Privileged: false
+          PseudoTerminal: false
+          ReadonlyRootFilesystem: false
+          # Secrets: 
+          #   - Secret
+          # WorkingDirectory: String
+      Cpu: !Ref CPU
+      # EphemeralStorage: 
+      #   EphemeralStorage
+      ExecutionRoleArn: !Ref ExecutionRoleArn
+      Family: !Ref TaskName
+      Memory: !Ref Memory
+      NetworkMode: awsvpc
+      # RuntimePlatform: 
+      #   RuntimePlatform 
+      Tags:
+      - Key: Project
+        Value: !Ref ProjectTagValue
+      - Key: Service
+        Value: !Ref ServiceTagValue
+      - Key: Environment
+        Value: !Ref Environment
+      RequiresCompatibilities:
+      - EC2
+      - FARGATE
+      TaskRoleArn: !Ref TaskRoleArn
+      Volumes: 
+        - Name: data-vol
+          EFSVolumeConfiguration:
+            RootDirectory: /
+            FilesystemId: !Ref EFSId
+
+  Service:
+    Type: AWS::ECS::Service
+    DependsOn: 
+    - ListenerRule
+    Properties:
+      ServiceName:  !Sub ${TaskName}-service
+      Cluster: !Sub arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:cluster/${ClusterName}
+      TaskDefinition: !Ref TaskDefinition
+      Tags:
+      - Key: Project
+        Value: !Ref ProjectTagValue
+      - Key: Service
+        Value: !Ref ServiceTagValue
+      - Key: Environment
+        Value: !Ref Environment
+      EnableExecuteCommand: true
+      PropagateTags: SERVICE
+      DeploymentConfiguration:
+        DeploymentCircuitBreaker:
+          Enable: true
+          Rollback: true
+      DesiredCount: !Ref DesiredCount
+      LaunchType: FARGATE
+      LoadBalancers:
+        - TargetGroupArn: !Ref TargetGroup
+          ContainerPort: !Ref ServicePort
+          ContainerName: !Sub ${TaskName}
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          # AssignPublicIp: DISABLED
+          Subnets: !Ref PrivateSubnetIds
+          SecurityGroups:
+            - !Ref ContainerSecurityGroupId
+
+  LogGroup: 
+    Type: AWS::Logs::LogGroup
+    Properties: 
+      LogGroupName: !Sub /ecs/${TaskName}-ecs
+      RetentionInDays: !Ref RetentionInDays
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      TargetType: ip
+      Name: !Sub ${TaskName}-tg
+      Port: !Ref ServicePort
+      HealthCheckPath: !Ref HealthCheckPath
+      Protocol: HTTP
+      VpcId: !Ref VpcId
+      Tags:
+      - Key: Project
+        Value: !Ref ProjectTagValue
+      - Key: Service
+        Value: !Ref ServiceTagValue
+      - Key: Environment
+        Value: !Ref Environment
+      TargetGroupAttributes:
+      - Key: deregistration_delay.timeout_seconds
+        Value: !Ref DeregistrationDelay 
+
+  # LoadBalancerListenerHTTPS:
+  #   Type: AWS::ElasticLoadBalancingV2::Listener
+  #   Properties:
+  #     LoadBalancerArn: !Ref LoadBalancerArn
+  #     Certificates: 
+  #     - CertificateArn: !Ref CertificateARN
+  #     Port: 443
+  #     Protocol: HTTPS
+  #     DefaultActions:
+  #       - Type: forward
+  #         TargetGroupArn: !Ref TargetGroup
+
+  ListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions: 
+      - Type: forward
+        TargetGroupArn: !Ref TargetGroup
+      Conditions: 
+      - Field: host-header
+        HostHeaderConfig:
+          Values:
+          - !Ref HostHeader
+      ListenerArn: !Ref LoadBalancerListenerArn
+      Priority: !Ref Priority 
+
+
+  OfficeAutomationUnhealthyHostsAlarm:
+    Condition: CreateAlerts
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      AlarmName: !Sub ${ServiceTagValue} Unhealthy Host
+      ActionsEnabled: true
+      AlarmActions: 
+        - !Ref AlertTopic
+      OKActions: 
+        - !Ref AlertTopic
+      MetricName: "UnHealthyHostCount"
+      Namespace: "AWS/ApplicationELB"
+      Statistic: "Average"
+      Dimensions: 
+        - 
+          Name: "TargetGroup"
+          Value: !GetAtt TargetGroup.TargetGroupFullName
+        - 
+          Name: "LoadBalancer"
+          Value: !Ref LoadBalancerFullName
+      Period: 60
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 0
+      ComparisonOperator: "GreaterThanThreshold"
+      TreatMissingData: "missing"
+
+  OfficeAutomationNotEnoughHealthyHostAlarm:
+    Condition: CreateAlerts
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      AlarmName: !Sub ${ServiceTagValue} Not Enough Healthy Host
+      ActionsEnabled: true
+      AlarmActions: 
+        - !Ref AlertTopic
+      OKActions: 
+        - !Ref AlertTopic
+      MetricName: "HealthyHostCount"
+      Namespace: "AWS/ApplicationELB"
+      Statistic: "Average"
+      Dimensions: 
+        - 
+          Name: "TargetGroup"
+          Value: !GetAtt TargetGroup.TargetGroupFullName
+        - 
+          Name: "LoadBalancer"
+          Value: !Ref LoadBalancerFullName
+      Period: 60
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: 1
+      ComparisonOperator: "LessThanThreshold"
+      TreatMissingData: "missing"
+
+  OfficeAutomation5xxErrorAlarm:
+    Condition: CreateAlerts
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      AlarmName: !Sub ${ServiceTagValue} 5xx error Alarm
+      ActionsEnabled: true
+      AlarmActions: 
+        - !Ref AlertTopic
+      OKActions: 
+        - !Ref AlertTopic
+      MetricName: "HTTPCode_ELB_5XX_Count"
+      Namespace: "AWS/ApplicationELB"
+      Statistic: "Average"
+      Dimensions: 
+        - 
+          Name: "LoadBalancer"
+          Value: !Ref LoadBalancerFullName
+      Period: 60
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: 3
+      ComparisonOperator: "GreaterThanThreshold"
+      TreatMissingData: "notBreaching"
+
+  OfficeAutomationTargetConnectionErrorAlarm:
+    Condition: CreateAlerts
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      AlarmName: !Sub ${ServiceTagValue} Target Connection Error
+      ActionsEnabled: true
+      AlarmActions: 
+        - !Ref AlertTopic
+      OKActions: 
+        - !Ref AlertTopic
+      MetricName: "TargetConnectionErrorCount"
+      Namespace: "AWS/ApplicationELB"
+      Statistic: "Average"
+      Dimensions: 
+        - 
+          Name: "LoadBalancer"
+          Value: !Ref LoadBalancerFullName
+      Period: 60
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: 1
+      ComparisonOperator: "GreaterThanThreshold"
+      TreatMissingData: "notBreaching"
+
+  OfficeAutomationFargateMemoryAlarm:
+    Condition: CreateAlerts
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      AlarmName: !Sub ${ServiceTagValue} Fargate Memory
+      ActionsEnabled: true
+      AlarmActions: 
+        - !Ref AlertTopic
+      OKActions: 
+        - !Ref AlertTopic
+      MetricName: "MemoryUtilization"
+      Namespace: "AWS/ECS"
+      Statistic: "Average"
+      Dimensions: 
+        - 
+          Name: "ServiceName"
+          Value: !GetAtt Service.Name
+        - 
+          Name: "ClusterName"
+          Value: !Ref ClusterName
+      Period: 60
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: !Ref FargateTaskMemoryPerecentThreshold
+      ComparisonOperator: "GreaterThanThreshold"
+      TreatMissingData: "missing"
+
+  OfficeAutomationFargateCPUAlarm:
+    Condition: CreateAlerts
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      AlarmName: !Sub ${ServiceTagValue} Fargate CPU
+      ActionsEnabled: true
+      AlarmActions: 
+        - !Ref AlertTopic
+      OKActions: 
+        - !Ref AlertTopic
+      MetricName: "CPUUtilization"
+      Namespace: "AWS/ECS"
+      Statistic: "Average"
+      Dimensions: 
+        - 
+          Name: "ServiceName"
+          Value: !GetAtt Service.Name
+        - 
+          Name: "ClusterName"
+          Value: !Ref ClusterName
+      Period: 60
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: !Ref FargateTaskCPUPerecentThreshold
+      ComparisonOperator: "GreaterThanThreshold"
+      TreatMissingData: "missing"

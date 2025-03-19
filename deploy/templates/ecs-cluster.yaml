@@ -1,0 +1,46 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Deploy the ECS Cluster
+
+Parameters:
+  Environment:
+    Type: String
+    Description: (Required) The environment that this is deploying to
+    Default: staging
+    AllowedValues:
+      - staging
+      - prod
+      - prod-office-two
+      - prod-office-three
+      - prod-office-five
+      - prod-office-six
+      - prod-office-seven
+      - daddybet
+      - dashboard-v2
+
+  ClusterName:
+    Type: String
+    Description: (Required) The name of the cluster
+
+  ProjectTagValue:
+    Type: String
+    Description: The name of the project
+  ServiceTagValue:
+    Type: String
+    Description: The name of the service
+
+Resources:
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties: 
+      CapacityProviders: 
+        - FARGATE
+        # - FARGATE_SPOT
+      ClusterName: !Ref ClusterName
+      Tags:
+      - Key: Project
+        Value: !Ref ProjectTagValue
+      - Key: Service
+        Value: !Ref ServiceTagValue
+      - Key: Environment
+        Value: !Ref Environment

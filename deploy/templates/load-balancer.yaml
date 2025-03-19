@@ -1,0 +1,152 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Load Balancer
+
+Parameters: 
+  Environment:
+    Type: String
+    Description: (Required) The environment that this is deploying to
+    Default: staging
+    AllowedValues:
+      - staging
+      - prod
+      - prod-office-two
+      - prod-office-three
+      - prod-office-five
+      - prod-office-six
+      - prod-office-seven
+      - daddybet
+      - dashboard-v2
+  PublicSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Public Subnets List
+    Default: subnet-0d2f91305c2cadc69, subnet-0b542eae2ded1e746
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: ID Of the VPC
+  CertificateARN: 
+    Type: String
+    Description: Certificate ARN for https
+    
+  ProjectTagValue:
+    Type: String
+    Description: The name of the project
+  ServiceTagValue:
+    Type: String
+    Description: The name of the service
+
+Resources:
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: LoadBalancerSecurityGroup
+      GroupDescription: Security group for load balancer
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: "80"
+          ToPort: "80"
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: "443"
+          ToPort: "443"
+          CidrIp: 0.0.0.0/0
+      VpcId: !Ref VpcId
+      Tags:
+      - Key: Project
+        Value: !Ref ProjectTagValue
+      - Key: Service
+        Value: !Ref ServiceTagValue
+      - Key: Environment
+        Value: !Ref Environment
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: office-automation-load-balancer
+      Subnets: !Ref PublicSubnetIds
+      SecurityGroups:
+        - !GetAtt LoadBalancerSecurityGroup.GroupId
+      LoadBalancerAttributes:
+      - Key: deletion_protection.enabled
+        Value: true
+      Tags:
+      - Key: Project
+        Value: !Ref ProjectTagValue
+      - Key: Service
+        Value: !Ref ServiceTagValue
+      - Key: Environment
+        Value: !Ref Environment
+
+
+  LoadBalancerListenerHTTP:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+      - Type: "redirect"
+        RedirectConfig: 
+          Protocol: "HTTPS"
+          Port: 443
+          Host: "#{host}"
+          Path: "/#{path}"
+          Query: "#{query}"
+          StatusCode: "HTTP_301"
+
+  # DefaultTargetGroup:
+  #   Type: AWS::ElasticLoadBalancingV2::TargetGroup
+  #   Properties:
+  #     TargetType: ip
+  #     Name: !Sub ${TaskName}-target-group
+  #     Port: !Ref ServicePort
+  #     HealthCheckPath: "/health"
+  #     Protocol: HTTP
+  #     VpcId: !Ref VpcId
+  #     TargetGroupAttributes:
+  #     - Key: deregistration_delay.timeout_seconds
+  #       Value: !Ref DeregistrationDelay 
+
+  # LoadBalancerListenerHTTPS:
+  #   Type: AWS::ElasticLoadBalancingV2::Listener
+  #   Properties:
+  #     LoadBalancerArn: !Ref LoadBalancerArn
+  #     Certificates: 
+  #     - CertificateArn: !Ref CertificateARN
+  #     Port: 443
+  #     Protocol: HTTPS
+  #     DefaultActions:
+  #       - Type: forward
+  #         TargetGroupArn: !Ref DefaultTargetGroup
+
+  LoadBalancerListenerHTTPS:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Certificates: 
+      - CertificateArn: !Ref CertificateARN
+      Port: 443
+      Protocol: HTTPS
+      DefaultActions:
+        - Type: fixed-response
+          FixedResponseConfig:
+            ContentType: application/json
+            StatusCode: 404
+
+Outputs:
+  LoadBalancerARN:
+    Description: ARN of the load balancer
+    Value: !Ref LoadBalancer
+  LoadBalancerSecurityGroupId:
+    Description: ARN of the read policy for the parameter.
+    Value: !GetAtt LoadBalancerSecurityGroup.GroupId
+  # DefaultTargetGroupARN:
+  #   Description: Default Target Group
+  #   Value: !Ref TargetGroup
+  LoadBalancerListenerHTTPSArn:
+    Description: Load Balancer HTTPS Listener
+    Value: !Ref LoadBalancerListenerHTTPS
+  LoadBalancerFullName:
+    Description: The name of the load balancer
+    Value: !GetAtt LoadBalancer.LoadBalancerFullName
+

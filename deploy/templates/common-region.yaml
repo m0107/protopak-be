@@ -1,0 +1,170 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Deploy the ECS Service
+
+Parameters:
+  Environment:
+    Type: String
+    Description: (Required) The environment that this is deploying to
+    Default: staging
+    AllowedValues:
+      - staging
+      - prod
+      - prod-office-two
+      - prod-office-three
+      - prod-office-five
+      - prod-office-six
+      - prod-office-seven
+      - daddybet
+      - dashboard-v2
+      
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC ID
+  
+  LoadBalancerSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: The Id of the load balancer sg
+
+  ServicePort:
+    Type: String
+    Description: The Port on which the container runs
+
+  TaskName:
+    Type: String
+    Description: The name of the task
+
+  RDSSecurityGroupID:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: The ID of the RDS Security Group
+
+  EFSSecurityGroupID:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: The ID of the EFS Security Group
+    
+  ProjectTagValue:
+    Type: String
+    Description: The name of the project
+  ServiceTagValue:
+    Type: String
+    Description: The name of the service
+
+Resources:
+  TaskRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Sub ${TaskName}-${AWS::Region}-ecs-task-role
+      Description: !Sub ${TaskName}-${AWS::Region}-ecs-task-role
+      Policies:
+        - PolicyName: basic-policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                - sqs:DeleteMessage
+                - s3:PutObject
+                - s3:GetObject
+                - sqs:GetQueueUrl
+                - s3:DeleteObjectVersion
+                - sqs:ReceiveMessage
+                - sqs:SendMessage
+                - s3:ListBucket
+                - s3:DeleteObject
+                - ses:SendEmail
+                - ssmmessages:CreateControlChannel
+                - ssmmessages:CreateDataChannel
+                - ssmmessages:OpenControlChannel
+                - ssmmessages:OpenDataChannel
+                Resource: '*'
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Action: sts:AssumeRole
+          Principal:
+            Service: ecs-tasks.amazonaws.com
+      Tags:
+      - Key: Project
+        Value: !Ref ProjectTagValue
+      - Key: Service
+        Value: !Ref ServiceTagValue
+      - Key: Environment
+        Value: !Ref Environment
+
+  ExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Sub ${TaskName}-${AWS::Region}-ecs-execution-role
+      Description: !Sub ${TaskName}-${AWS::Region}-ecs-execution-role
+      Policies:
+        - PolicyName: basic-policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                - ecr:GetAuthorizationToken
+                - ecr:BatchCheckLayerAvailability
+                - ecr:GetDownloadUrlForLayer
+                - ecr:BatchGetImage
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+                - s3:GetBucketLocation
+                - s3:GetObject
+                Resource: '*'
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Action: sts:AssumeRole
+          Principal:
+            Service: ecs-tasks.amazonaws.com
+      Tags:
+      - Key: Project
+        Value: !Ref ProjectTagValue
+      - Key: Service
+        Value: !Ref ServiceTagValue
+      - Key: Environment
+        Value: !Ref Environment
+
+  ContainerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: ContainerSecurityGroup
+      GroupDescription: !Sub Security group for ${TaskName} ECS Container
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort:  !Ref ServicePort
+          ToPort: !Ref ServicePort
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroupId
+
+  EFSSecurityGroupIngress:  
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      IpProtocol: tcp
+      FromPort: '2049'
+      ToPort: '2049'
+      SourceSecurityGroupId: !GetAtt ContainerSecurityGroup.GroupId
+      Description: Allow Security Group Ingress for ECS Container
+      GroupId: !Ref EFSSecurityGroupID
+
+  RDSSecurityGroupIngress:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    Properties:
+      IpProtocol: tcp
+      FromPort: '5432'
+      ToPort: '5432'
+      SourceSecurityGroupId: !GetAtt ContainerSecurityGroup.GroupId
+      Description: Allow Security Group Ingress for ECS Container
+      GroupId: !Ref RDSSecurityGroupID
+
+Outputs:
+  ContainerSecurityGroupId: 
+    Description: THe ID of the container security group
+    Value: !GetAtt ContainerSecurityGroup.GroupId
+  TaskRoleArn:
+    Description: The ARN for the ECS Task
+    Value: !Ref TaskRole
+  ExecutionRoleArn:
+    Description: The ARN for the execution of the ECS Task
+    Value: !Ref ExecutionRole
