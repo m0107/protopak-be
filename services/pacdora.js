@@ -1,5 +1,5 @@
 const axios = require("axios");
-const pandoraData = require("../data/protopak.json");
+// const pandoraData = require("../data/protopak.json");
 const PACDORA_BASE_URL = "https://apidemo.pacdora.com";
  
 async function getCategories() {
