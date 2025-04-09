@@ -8,16 +8,6 @@ const headers = {
   "Content-Type": "application/json",
 };
 
-async function getCategories() {
-  try {
-    const response = await axios.get(PACDORA_BASE_URL + "/ctree");
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching external API data:", error.message);
-    throw error;
-  }
-}
-
 const PACDORA_URLS = {
   EXPORT_PDF: `${PACDORA_BASE_URL}/user/projects/export/pdf`,
   EXPORT_KNIFE: `${PACDORA_BASE_URL}/user/projects/export/knife`,
@@ -37,19 +27,6 @@ const PACDORA_URLS = {
   WORKBENCH_TEMPLATES: `${PACDORA_BASE_URL}/open/v1/workbench/templates`, // duplicate /open/v1/open/v1/ was likely a typo
   USER_PROJECTS: `${PACDORA_BASE_URL}/user/projects`, // duplicate /open/v1/open/v1/ was likely a typo
 };
-
-async function getProductsList(categoryKey) {
-  try {
-    const response = await axios.get(
-      PACDORA_BASE_URL +
-        `/models?current=1&pageSize=50&mockupNameKey=${categoryKey}`
-    );
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching external API data:", error.message);
-    throw error;
-  }
-}
 
 async function updateUserBaseInfo({
   externalId,
@@ -492,22 +469,22 @@ async function getWorkbenchTemplates({
  * @returns {Promise<Object>} - API response
  */
 async function getUserProjects({ current, pageSize, userId, projectId }) {
-  if (!current || !pageSize || !userId || !projectId) {
-    throw new Error(
-      "All parameters (current, pageSize, userId, projectId) are required"
-    );
+  current = current || 1;
+  pageSize = pageSize || 50;
+  if (!userId) {
+    throw new Error("parameters (userId) is required");
   }
 
-  const params = new URLSearchParams({
-    current,
-    pageSize,
-    userId,
-    projectId,
-  });
+  const paramsObj = { current, pageSize, userId };
+
+  if (projectId) paramsObj.projectId = projectId;
+
+  const params = new URLSearchParams(paramsObj);
 
   const url = `${PACDORA_URLS.USER_PROJECTS}?${params.toString()}`;
 
   try {
+    console.log({ headers });
     const response = await axios.get(url, { headers });
     return response.data;
 
@@ -535,8 +512,8 @@ async function getUserProjects({ current, pageSize, userId, projectId }) {
 }
 
 module.exports = {
-  getCategories,
-  getProductsList,
+  // getCategories,
+  // getProductsList,
 
   exportProjectsAsPDF,
 

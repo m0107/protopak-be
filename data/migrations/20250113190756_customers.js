@@ -8,6 +8,7 @@ const tableName = "users";
 exports.up = async function(knex) {
     await knex.schema.createTable(tableName, (table) => {
         table.uuid("user_id").primary(); //provided by telegram
+        table.string("pacdora_user_id").unique().notNullable();
         table.string("email").unique().notNullable();
         table.string("password").notNullable();
         table.string("username").unique().nullable();

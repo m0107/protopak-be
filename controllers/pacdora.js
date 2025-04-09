@@ -1,36 +1,28 @@
-const adminUserRepo = require("../repositories/admin_users_repo");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
-const Joi = require("joi");
-const { knexRead, knex } = require("../data/knex/index");
-const { SingletonCache } = require("../helpers/cache");
-const { getCategories, getProductsList } = require("../services/pacdora");
-let myCache = new SingletonCache().getInstance();
+// const adminUserRepo = require("../repositories/admin_users_repo");
+// const bcrypt = require("bcrypt");
+// const jwt = require("jsonwebtoken");
+// const Joi = require("joi");
+// const { knexRead, knex } = require("../data/knex/index");
+// const { SingletonCache } = require("../helpers/cache");
+const { getUserProjects } = require("../services/pacdora");
+// let myCache = new SingletonCache().getInstance();
 
-//TODO: Fix response messages
-const getPacdoraCategories = async (req, res) => {
+const getUsersProducts = async (req, res) => {
+  console.log(">>>>>getPacdoraProducts");
   try {
-    let categories = await getCategories();
-    console.log("categories", categories);
-     return res.status(200).json({ status: true, message: "Logged out successfully.", data: categories.data });
-  } catch (err) {
-    console.log(err.message);
-    return res.status(500).json({
-      status: false,
-      message: err.message,
-      data: null,
+    // console.log("req.body", req.body, req.user);
+    console.log("111");
+    const productList = await getUserProjects({
+      userId: req.user.pacdora_user_id,
     });
-  }
-};
 
-const getPacdoraProducts = async (req, res) => {
-  console.log(">>>>>getPacdoraProducts")
-  try {
-    const mockupKey = req.body.mockup_key;
-    console.log("mockupKey", mockupKey);
-    let categories = await getProductsList(mockupKey);
-    console.log("categories", categories);
-     return res.status(200).json({ status: true, message: "Logged out successfully.", data: categories.data });
+    return res
+      .status(200)
+      .json({
+        status: true,
+        message: "Logged out successfully.",
+        data: productList,
+      });
   } catch (err) {
     console.log(err.message);
     return res.status(500).json({
@@ -42,6 +34,6 @@ const getPacdoraProducts = async (req, res) => {
 };
 
 module.exports = {
-  getPacdoraCategories,
-  getPacdoraProducts
+  // getPacdoraCategories,
+  getUsersProducts,
 };

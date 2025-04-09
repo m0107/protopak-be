@@ -4,8 +4,9 @@ const jwt = require("jsonwebtoken");
 const Joi = require("joi");
 const { knexRead, knex } = require("../data/knex/index");
 const { SingletonCache } = require("../helpers/cache");
+const { createId } = require('@paralleldrive/cuid2');
 
-const { razorpay } = require("../services/razorpay/index");
+// const { razorpay } = require("../services/razorpay/index");
 
 let myCache = new SingletonCache().getInstance();
 
@@ -15,7 +16,9 @@ const createUser = async (req, res) => {
     const body = req.body;
     let validator = Joi.object({
       password: Joi.string()
-        .pattern(new RegExp(/^(?=.*\d)(?=.*[!@#$%^&*])(?=.*[a-z])(?=.*[A-Z]).{8,20}$/))
+        .pattern(
+          new RegExp(/^(?=.*\d)(?=.*[!@#$%^&*])(?=.*[a-z])(?=.*[A-Z]).{8,20}$/)
+        )
         .required(),
       //
       email: Joi.string()
@@ -58,6 +61,7 @@ const createUser = async (req, res) => {
         // username: body.username,
         password: body.password,
         email: body.email,
+        pacdora_user_id: createId(),
         // role_id: body.role_id,
         // branch_id: body.branch_id ? body.branch_id : null,
         // created_by: req.user.user_id,
@@ -77,7 +81,8 @@ const createUser = async (req, res) => {
     console.error(err);
     return res.status(500).json({
       status: false,
-      message: "something went wrong while creating admin user! Please try again.",
+      message:
+        "something went wrong while creating admin user! Please try again.",
       data: null,
     });
   }
@@ -103,7 +108,7 @@ const login = async (req, res) => {
     }
 
     let adminUser = await adminUserRepo.readAdminByEmail(body.email);
-    
+
     if (!adminUser) {
       return res.status(400).json({
         status: false,
@@ -112,7 +117,10 @@ const login = async (req, res) => {
       });
     }
 
-    const validPassword = await bcrypt.compare(body.password, adminUser.password);
+    const validPassword = await bcrypt.compare(
+      body.password,
+      adminUser.password
+    );
     if (validPassword) {
       //TODO: If email is not vrified send login faild, need to verify email
 
@@ -120,7 +128,7 @@ const login = async (req, res) => {
         {
           id: adminUser.user_id,
           email: adminUser.email,
-         },
+        },
         process.env.JWT_TOKEN,
         {
           expiresIn: parseInt(process.env.REFRESH_TOKEN_EXPIRY),
@@ -143,7 +151,9 @@ const login = async (req, res) => {
           status: true,
           message: "Login successful.",
           data: {
+            user_id: adminUser.user_id,
             email: adminUser.email,
+            pacdora_user_id: adminUser.pacdora_user_id
           },
         });
     } else {
@@ -178,7 +188,8 @@ const deleteUser = async (req, res) => {
     console.log(err.message);
     return res.status(500).json({
       status: false,
-      message: "something went wrong while deleting admin user! Please try again.",
+      message:
+        "something went wrong while deleting admin user! Please try again.",
       data: null,
     });
   }
@@ -186,9 +197,14 @@ const deleteUser = async (req, res) => {
 
 const logoutUser = async (req, res) => {
   try {
-    await adminUserRepo.updateAdminUser({ user_id: req.user.user_id }, { loggedout_at: knexRead.fn.now() });
+    await adminUserRepo.updateAdminUser(
+      { user_id: req.user.user_id },
+      { loggedout_at: knexRead.fn.now() }
+    );
     await myCache.del(`${req.user.role_id}-routes`);
-    return res.status(200).json({ status: true, message: "Logged out successfully.", data: null });
+    return res
+      .status(200)
+      .json({ status: true, message: "Logged out successfully.", data: null });
   } catch (err) {
     console.log(err.message);
     return res.status(500).json({
@@ -199,42 +215,20 @@ const logoutUser = async (req, res) => {
   }
 };
 
-
-const checkoutItem = async (req, res) => {
-  const trx = await knex.transaction();
+const userProfile = async (req, res) => {
+  // const trx = await knex.transaction();
   try {
-    const { amount } = req.body;
-    
-    const options = {
-      amount: amount * 100, // Razorpay expects amount in paise
-      currency: 'INR',
-      receipt: `receipt_${Date.now()}`,
-    };
- 
+    const { user_id } = req.body;
 
-    await trx.commit();
-    
-  try {
-    const order = await razorpay.orders.create(options);
-
-    console.log('order', order);
-    // await db('orders').insert({
-    //   razorpay_order_id: order.id,
-    //   amount: order.amount,
-    //   status: 'created',
-    // });
-
-    res.json(order);
+    const user = await adminUserRepo.readAdminUserById(user_id);
+    console.log(user);
   } catch (err) {
-    console.error({ err });
-    res.status(500).json({ error: 'Error creating Razorpay order' });
-  }
-  } catch (err) {
-    await trx.rollback();
+    // await trx.rollback();
     console.error(err);
     return res.status(500).json({
       status: false,
-      message: "something went wrong while creating admin user! Please try again.",
+      message:
+        "something went wrong while creating admin user! Please try again.",
       data: null,
     });
   }
@@ -246,5 +240,6 @@ module.exports = {
   deleteUser,
   logoutUser,
 
-  checkoutItem
+  userProfile,
+  // checkoutItem
 };
