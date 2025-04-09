@@ -11,5 +11,6 @@ router.post("/register", user.createUser);
 router.post("/categories", pacdora.getPacdoraCategories);
 router.post("/products", pacdora.getPacdoraProducts);
 
+router.post("/checkout", user.checkoutItem);
 
 module.exports = router;

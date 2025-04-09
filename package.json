@@ -43,6 +43,7 @@
     "nodemailer": "^6.7.3",
     "nodemon": "^2.0.19",
     "pg": "^8.7.1",
+    "razorpay": "^2.9.6",
     "socket.io": "^4.4.1",
     "speakeasy": "^2.0.0",
     "telegraf": "^4.16.3",

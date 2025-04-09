@@ -4,6 +4,9 @@ const jwt = require("jsonwebtoken");
 const Joi = require("joi");
 const { knexRead, knex } = require("../data/knex/index");
 const { SingletonCache } = require("../helpers/cache");
+
+const { razorpay } = require("../repositories/razorpay/index");
+
 let myCache = new SingletonCache().getInstance();
 
 const createUser = async (req, res) => {
@@ -196,9 +199,52 @@ const logoutUser = async (req, res) => {
   }
 };
 
+
+const checkoutItem = async (req, res) => {
+  const trx = await knex.transaction();
+  try {
+    const { amount } = req.body;
+    
+    const options = {
+      amount: amount * 100, // Razorpay expects amount in paise
+      currency: 'INR',
+      receipt: `receipt_${Date.now()}`,
+    };
+ 
+
+    await trx.commit();
+    
+  try {
+    const order = await razorpay.orders.create(options);
+
+    console.log('order', order);
+    // await db('orders').insert({
+    //   razorpay_order_id: order.id,
+    //   amount: order.amount,
+    //   status: 'created',
+    // });
+
+    res.json(order);
+  } catch (err) {
+    console.error({ err });
+    res.status(500).json({ error: 'Error creating Razorpay order' });
+  }
+  } catch (err) {
+    await trx.rollback();
+    console.error(err);
+    return res.status(500).json({
+      status: false,
+      message: "something went wrong while creating admin user! Please try again.",
+      data: null,
+    });
+  }
+};
+
 module.exports = {
   createUser,
   login,
   deleteUser,
-  logoutUser
+  logoutUser,
+
+  checkoutItem
 };
