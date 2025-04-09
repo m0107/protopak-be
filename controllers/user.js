@@ -5,7 +5,7 @@ const Joi = require("joi");
 const { knexRead, knex } = require("../data/knex/index");
 const { SingletonCache } = require("../helpers/cache");
 
-const { razorpay } = require("../repositories/razorpay/index");
+const { razorpay } = require("../services/razorpay/index");
 
 let myCache = new SingletonCache().getInstance();
 
