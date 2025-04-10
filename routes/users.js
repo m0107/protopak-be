@@ -9,5 +9,6 @@ router.post("/register", user.createUser);
 
 // router.post("/categories", pacdora.getPacdoraCategories);
 router.post("/products", [auth], pacdora.getUsersProducts);
+router.post("/downloadDieline", [auth], pacdora.downloadDieline);
 
 module.exports = router;

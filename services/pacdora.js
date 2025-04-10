@@ -26,7 +26,7 @@ const PACDORA_URLS = {
     `${PACDORA_BASE_URL}/user/projects/export/knife?taskId=${taskId}`,
   WORKBENCH_TEMPLATES: `${PACDORA_BASE_URL}/open/v1/workbench/templates`, // duplicate /open/v1/open/v1/ was likely a typo
   USER_PROJECTS: `${PACDORA_BASE_URL}/user/projects`, // duplicate /open/v1/open/v1/ was likely a typo
-};
+ };
 
 async function updateUserBaseInfo({
   externalId,
@@ -79,14 +79,8 @@ async function updateUserBaseInfo({
  * @param {string} [params.config.trimColor] - Hex code for trim color
  * @returns {Promise<Object>} - Response from the API
  */
-async function exportProjectsAsPDF({ appId, appKey, projectIds, config = {} }) {
+async function exportProjectsAsPDF({ projectIds, config = {} }) {
   const url = PACDORA_URLS.EXPORT_PDF;
-
-  const headers = {
-    appId,
-    appKey,
-    "Content-Type": "application/json",
-  };
 
   const data = {
     projectIds,
@@ -374,7 +368,7 @@ async function deleteUploadedProjects(projectIds) {
 
   try {
     const response = await axios.delete(
-      PACDORA_URLS.PACDORA_PROJECT_DELETE_URL,
+      PACDORA_URLS.USER_PROJECTS,
       {
         headers,
         data,

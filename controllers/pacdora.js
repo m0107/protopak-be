@@ -4,7 +4,7 @@
 // const Joi = require("joi");
 // const { knexRead, knex } = require("../data/knex/index");
 // const { SingletonCache } = require("../helpers/cache");
-const { getUserProjects } = require("../services/pacdora");
+const { getUserProjects, exportProjectsAsPDF } = require("../services/pacdora");
 // let myCache = new SingletonCache().getInstance();
 
 const getUsersProducts = async (req, res) => {
@@ -33,7 +33,36 @@ const getUsersProducts = async (req, res) => {
   }
 };
 
+const downloadDieline = async (req, res) => {
+  console.log(">>>>>getPacdoraProducts");
+  try {
+    console.log("req.body", req.body, req.user);
+    const { project_id } = req.body;
+    console.log("111");
+    const productList = await exportProjectsAsPDF({
+      projectIds: [project_id],
+    });
+
+    return res
+      .status(200)
+      .json({
+        status: true,
+        message: "Dieline Download",
+        data: productList,
+      });
+  } catch (err) {
+    console.log(err.message);
+    return res.status(500).json({
+      status: false,
+      message: err.message,
+      data: null,
+    });
+  }
+};
+
 module.exports = {
   // getPacdoraCategories,
   getUsersProducts,
+
+  downloadDieline,
 };
