@@ -39,6 +39,7 @@ exports.getUserShoppingCart = (userId) => {
     'user_products.size',
     'user_products.size_options',
     'user_products.quantity_options',
+    // 'user_products.quantity', TODO: Add quantity
     'user_products.printSides',
     'user_products.printSides_options',
     'user_products.print',
@@ -52,7 +53,8 @@ exports.getUserShoppingCart = (userId) => {
   )
   .where('shopping_cart.user_id', '=', userId) // Replace with actual user_id
   .then(rows => {
-    console.log(rows);  // The result of the join
+    //console.log(rows);  
+    return rows;// The result of the join
   })
   .catch(err => {
     console.error('Error:', err);

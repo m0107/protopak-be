@@ -14,5 +14,7 @@ router.post("/deleteProduct", [auth], pacdora.deleteProduct);
 // router.post("/addProductToCart", [auth], pacdora.deleteProduct);
 router.post("/downloadDieline", [auth], pacdora.downloadDieline);
 router.post("/addToCart", [auth], user.addToCart);
+router.post("/shoppingCartList", [auth], user.shoppingCartList);
+//
 
 module.exports = router;

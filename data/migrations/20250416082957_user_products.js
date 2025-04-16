@@ -24,6 +24,7 @@ exports.up = function (knex) {
 
     table.float("price").notNullable();
 
+    table.string("quantity").notNullable();
     table.jsonb("quantity_options").notNullable();
 
     table.string("printSides").notNullable();
@@ -39,10 +40,8 @@ exports.up = function (knex) {
     table.jsonb("finishing_options").notNullable();
 
     table.string("delivery").notNullable();
-      table.jsonb("delivery_options").notNullable();
-      
-      //TODO: Add is_deleted
-
+    table.jsonb("delivery_options").notNullable();
+    table.boolean("is_deleted").defaultTo(false);
 
     table.timestamps(true, true);
   });

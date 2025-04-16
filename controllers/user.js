@@ -324,6 +324,37 @@ const addToCart = async (req, res) => {
   }
 };
 
+const shoppingCartList = async (req, res) => {
+  // const trx = await knex.transaction();
+  try {
+
+    const {
+      user_id
+    } = req.user
+
+    const usersShoppingCart = await shoppingCartRepo.getUserShoppingCart(user_id);
+    
+    console.log({ usersShoppingCart });
+
+    return res.status(200).json({
+      status: true,
+      message: "Shopping Cart List Fetch Successfully",
+      data: usersShoppingCart,
+    });
+  } catch (err) {
+
+    console.error(err);
+    return res.status(500).json({
+      status: false,
+      message:
+        "something went wrong while creating admin user! Please try again.",
+      data: null,
+    });
+  }
+};
+
+//shoppingCartList
+
 module.exports = {
   createUser,
   login,
@@ -332,5 +363,6 @@ module.exports = {
 
   userProfile,
   addToCart,
+  shoppingCartList
   // checkoutItem
 };
