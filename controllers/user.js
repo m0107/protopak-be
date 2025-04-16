@@ -1,10 +1,12 @@
 const adminUserRepo = require("../repositories/admin_users_repo");
+const userProductsRepo = require("../repositories/user_products_repo");
+const shoppingCartRepo = require("../repositories/shopping_cart_repo");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const Joi = require("joi");
 const { knexRead, knex } = require("../data/knex/index");
 const { SingletonCache } = require("../helpers/cache");
-const { createId } = require('@paralleldrive/cuid2');
+const { createId } = require("@paralleldrive/cuid2");
 
 // const { razorpay } = require("../services/razorpay/index");
 
@@ -153,7 +155,7 @@ const login = async (req, res) => {
           data: {
             user_id: adminUser.user_id,
             email: adminUser.email,
-            pacdora_user_id: adminUser.pacdora_user_id
+            pacdora_user_id: adminUser.pacdora_user_id,
           },
         });
     } else {
@@ -234,6 +236,94 @@ const userProfile = async (req, res) => {
   }
 };
 
+const addToCart = async (req, res) => {
+  // const trx = await knex.transaction();
+  try {
+    const {
+      project_id,
+      project_name,
+      size,
+      size_options,
+      price,
+      quantity_options,
+      print,
+      print_options,
+      printSides,
+      printSides_options,
+
+      material,
+      material_options,
+
+      finishing,
+      finishing_options,
+
+      delivery,
+      delivery_options,
+    } = req.body;
+
+    const {
+      user_id
+    } = req.user
+
+    const userProjuctObj = {
+      project_id,
+      project_name: project_name || "untitled",
+      user_id,
+      size,
+      size_options: JSON.stringify(size_options),
+      price: price,
+      quantity_options: JSON.stringify(quantity_options),
+      printSides: printSides,
+      printSides_options: JSON.stringify(printSides_options),
+      print,
+      print_options: JSON.stringify(print_options),
+      material: material,
+      material_options: JSON.stringify(material_options),
+      finishing,
+      finishing_options: JSON.stringify(finishing_options),
+      delivery,
+      delivery_options: JSON.stringify(delivery_options),
+      // is_deleted: false,
+      // created_at: knex.fn.now(),
+      // updated_at: knex.fn.now(),
+    }
+
+    // console.log(req.body, "insert into database", userProjuctObj);
+    let result1 = await userProductsRepo.insertProduct(userProjuctObj);
+    
+    const result2 = await shoppingCartRepo.createShoppingCart({
+      user_id,
+      user_products_id: result1.user_products_id,
+      is_selected: true,
+    });
+
+    //getUserShoppingCart
+
+    const usersShoppingCart =   await shoppingCartRepo.getUserShoppingCart(user_id);
+
+    console.log({ result1, result2, usersShoppingCart });
+
+    //result
+
+    // const user = await adminUserRepo.readAdminUserById(user_id);
+    // console.log(user);
+    return res.status(200).json({
+      status: true,
+      message: "Added to Shopping Cart.",
+      data: result2,
+    });
+  } catch (err) {
+    // await trx.rollback();
+    console.error(err);
+    return res.status(500).json({
+      status: false,
+      message:
+        "something went wrong while creating admin user! Please try again.",
+      data: null,
+    });
+  }
+};
+
 module.exports = {
   createUser,
   login,
@@ -241,5 +331,6 @@ module.exports = {
   logoutUser,
 
   userProfile,
+  addToCart,
   // checkoutItem
 };

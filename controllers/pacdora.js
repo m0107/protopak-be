@@ -4,7 +4,7 @@
 // const Joi = require("joi");
 // const { knexRead, knex } = require("../data/knex/index");
 // const { SingletonCache } = require("../helpers/cache");
-const { getUserProjects, exportProjectsAsPDF } = require("../services/pacdora");
+const { getUserProjects, exportProjectsAsPDF, deleteUploadedProjects } = require("../services/pacdora");
 // let myCache = new SingletonCache().getInstance();
 
 const getUsersProducts = async (req, res) => {
@@ -16,6 +16,31 @@ const getUsersProducts = async (req, res) => {
       userId: req.user.pacdora_user_id,
     });
 
+    return res
+      .status(200)
+      .json({
+        status: true,
+        message: "Logged out successfully.",
+        data: productList,
+      });
+  } catch (err) {
+    console.log(err.message);
+    return res.status(500).json({
+      status: false,
+      message: err.message,
+      data: null,
+    });
+  }
+};
+
+const deleteProduct = async (req, res) => {
+  console.log(">>>>>deleteProduct",req.body);
+  try {
+    // console.log("req.body", req.body, req.user);
+    console.log("111");
+    //TODO: Check if Project id is valid and is under the userid
+    const productList = await deleteUploadedProjects([req.body.project_id]);
+    console.log("deleteUploadedProjects", productList)
     return res
       .status(200)
       .json({
@@ -63,6 +88,6 @@ const downloadDieline = async (req, res) => {
 module.exports = {
   // getPacdoraCategories,
   getUsersProducts,
-
+  deleteProduct,
   downloadDieline,
 };

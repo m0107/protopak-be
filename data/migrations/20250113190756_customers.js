@@ -24,6 +24,9 @@ exports.up = async function(knex) {
         table.boolean("is_email_verified").defaultTo(false);
         table.timestamp("password_changed_at").nullable().defaultTo(null);
         table.timestamp("ip").nullable().defaultTo(null);
+
+        table.index(["user_id"], "idx_user_id");
+
     });
 };
 

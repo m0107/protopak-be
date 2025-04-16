@@ -9,6 +9,10 @@ router.post("/register", user.createUser);
 
 // router.post("/categories", pacdora.getPacdoraCategories);
 router.post("/products", [auth], pacdora.getUsersProducts);
+router.post("/deleteProduct", [auth], pacdora.deleteProduct);
+// router.post("/renameProduct", [auth], pacdora.deleteProduct);
+// router.post("/addProductToCart", [auth], pacdora.deleteProduct);
 router.post("/downloadDieline", [auth], pacdora.downloadDieline);
+router.post("/addToCart", [auth], user.addToCart);
 
 module.exports = router;

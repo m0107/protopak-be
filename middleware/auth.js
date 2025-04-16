@@ -15,7 +15,6 @@ module.exports = async (req, res, next) => {
  
   try {
     let token = req.body.token || req.query.token || req.headers["x-access-token"];
-    console.log({ token });
     if (!token && req.headers["authorization"]) {
       token = (req.headers["authorization"]).split(" ")[1];
     }
