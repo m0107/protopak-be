@@ -14,6 +14,11 @@ router.post("/deleteProduct", [auth], pacdora.deleteProduct);
 // router.post("/addProductToCart", [auth], pacdora.deleteProduct);
 router.post("/downloadDieline", [auth], pacdora.downloadDieline);
 router.post("/addToCart", [auth], user.addToCart);
+router.post("/updateProduct", [auth], user.updateProjectDetails);
+//
+router.post("/removeFromCart", [auth], user.removeFromCart);
+router.post("/checkout", [auth], user.checkout);
+//
 router.post("/shoppingCartList", [auth], user.shoppingCartList);
 //
 

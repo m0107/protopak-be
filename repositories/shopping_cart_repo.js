@@ -61,15 +61,15 @@ exports.getUserShoppingCart = (userId) => {
   });
 };
 
-// exports.findProductByFilter = (filter, { trx }) => {
-//   return (trx || knex)(constants.name)
-//     .where(filter)
-//     .select("*")
-//     .first()
-//     .catch((error) => {
-//       throw error;
-//     });
-// };
+exports.findOneShoppingCartByFilter = (filter, { trx }) => {
+  return (trx || knex)(constants.name)
+    .where(filter)
+    .select("*")
+    .first()
+    .catch((error) => {
+      throw error;
+    });
+};
 
 // exports.readAdminUserById = (id, idNumber = "id1", { trx } = {}) => {
 //   return (
@@ -166,19 +166,15 @@ exports.getUserShoppingCart = (userId) => {
 //     });
 // };
 
-// exports.deleteAdminUser = (searchObj) => {
-//   const object = { is_deleted: true };
-//   return knex(constants.name)
-//     .returning("*")
-//     .where(searchObj)
-//     .update(object)
-//     .then((res) => {
-//       return res[0];
-//     })
-//     .catch((error) => {
-//       throw error;
-//     });
-// };
+exports.deleteCartItem = (id) => {
+  return knex(constants.name)
+    .returning("*")
+    .where({shopping_cart_id: id})
+    .del()
+    .then(() => {
+      return null;
+    })
+};
 
 // exports.getAdminUserDataForDashboard = async ({
 //   limit = 10,

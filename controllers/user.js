@@ -7,8 +7,10 @@ const Joi = require("joi");
 const { knexRead, knex } = require("../data/knex/index");
 const { SingletonCache } = require("../helpers/cache");
 const { createId } = require("@paralleldrive/cuid2");
-
+const { uuid } = require("uuidv4");
+const { razorpay } = require("../services/razorpay/index");
 // const { razorpay } = require("../services/razorpay/index");
+const { getUserProjects } = require("../services/pacdora");
 
 let myCache = new SingletonCache().getInstance();
 
@@ -237,41 +239,78 @@ const userProfile = async (req, res) => {
 };
 
 const addToCart = async (req, res) => {
-  // const trx = await knex.transaction();
   try {
     const {
-      project_id,
-      project_name,
+      user_products_id
+    } = req.body;
+
+    const { user_id } = req.user;
+
+    const result = await shoppingCartRepo.createShoppingCart({
+      user_id,
+      user_products_id,
+      is_selected: true,
+    });
+
+    return res.status(200).json({
+      status: true,
+      message: "Added to Shopping Cart.",
+      data: result,
+    });
+  } catch (err) {
+    // await trx.rollback();
+    console.error(err);
+    return res.status(500).json({
+      status: false,
+      message:
+        "something went wrong while creating admin user! Please try again.",
+      data: null,
+    });
+  }
+};
+
+const updateProjectDetails = async (req, res) => {
+  // const trx = await knex.transaction();
+  try {
+    const { project_id, user_products_id } = req.body;
+
+    const { user_id } = req.user;
+
+    const projects = await getUserProjects({
+      userId: req.user.pacdora_user_id,
+      projectId: [project_id],
+    });
+    
+    console.log({ project_id });
+    // console.log("**********", projects, projects.data);
+    const project = projects.data[0]
+    console.log("project", project);
+
+    const {
       size,
       size_options,
       price,
+      quantity,
       quantity_options,
       print,
       print_options,
       printSides,
       printSides_options,
-
       material,
       material_options,
-
       finishing,
       finishing_options,
-
       delivery,
       delivery_options,
     } = req.body;
 
-    const {
-      user_id
-    } = req.user
-
     const userProjuctObj = {
       project_id,
-      project_name: project_name || "untitled",
       user_id,
       size,
       size_options: JSON.stringify(size_options),
       price: price,
+      quantity: quantity,
       quantity_options: JSON.stringify(quantity_options),
       printSides: printSides,
       printSides_options: JSON.stringify(printSides_options),
@@ -283,34 +322,31 @@ const addToCart = async (req, res) => {
       finishing_options: JSON.stringify(finishing_options),
       delivery,
       delivery_options: JSON.stringify(delivery_options),
-      // is_deleted: false,
-      // created_at: knex.fn.now(),
-      // updated_at: knex.fn.now(),
+      image_url: project.screenshot,
+      project_name: project.name
+    };
+
+    console.log(req.body, "insert into database", userProjuctObj);
+
+    //TODO: To Check if project is present use - user_products_id
+    const isProjectPresent = await userProductsRepo.findProductByFilter({ project_id });
+    console.log({ isProjectPresent });
+    let result;
+    if (isProjectPresent) {
+      console.log('updateProject...')
+      result = await userProductsRepo.updateProject({ ...isProjectPresent, ...userProjuctObj });
+    } else {
+      console.log('insertProject...')
+      result = await userProductsRepo.insertProject(userProjuctObj);
     }
 
-    // console.log(req.body, "insert into database", userProjuctObj);
-    let result1 = await userProductsRepo.insertProduct(userProjuctObj);
-    
-    const result2 = await shoppingCartRepo.createShoppingCart({
-      user_id,
-      user_products_id: result1.user_products_id,
-      is_selected: true,
-    });
+    //user_products_id
 
-    //getUserShoppingCart
-
-    const usersShoppingCart =   await shoppingCartRepo.getUserShoppingCart(user_id);
-
-    console.log({ result1, result2, usersShoppingCart });
-
-    //result
-
-    // const user = await adminUserRepo.readAdminUserById(user_id);
-    // console.log(user);
+    // let result = await userProductsRepo.insertProject(userProjuctObj)
     return res.status(200).json({
       status: true,
-      message: "Added to Shopping Cart.",
-      data: result2,
+      message: "Project values updated!.",
+      data: result,
     });
   } catch (err) {
     // await trx.rollback();
@@ -327,13 +363,12 @@ const addToCart = async (req, res) => {
 const shoppingCartList = async (req, res) => {
   // const trx = await knex.transaction();
   try {
+    const { user_id } = req.user;
 
-    const {
+    const usersShoppingCart = await shoppingCartRepo.getUserShoppingCart(
       user_id
-    } = req.user
+    );
 
-    const usersShoppingCart = await shoppingCartRepo.getUserShoppingCart(user_id);
-    
     console.log({ usersShoppingCart });
 
     return res.status(200).json({
@@ -342,7 +377,6 @@ const shoppingCartList = async (req, res) => {
       data: usersShoppingCart,
     });
   } catch (err) {
-
     console.error(err);
     return res.status(500).json({
       status: false,
@@ -353,6 +387,74 @@ const shoppingCartList = async (req, res) => {
   }
 };
 
+const removeFromCart = async (req, res) => {
+  // const trx = await knex.transaction();
+  try {
+    // const {
+    //   user_id
+    // } = req.user;
+
+    const { shopping_cart_id } = req.body;
+
+    const usersShoppingCart = await shoppingCartRepo.deleteCartItem(
+      shopping_cart_id
+    );
+
+    console.log({ usersShoppingCart });
+
+    return res.status(200).json({
+      status: true,
+      message: "Shopping Cart List Fetch Successfully",
+      data: usersShoppingCart,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      status: false,
+      message:
+        "something went wrong while creating admin user! Please try again.",
+      data: null,
+    });
+  }
+};
+
+const checkout = async (req, res) => {
+  // const trx = await knex.transaction();
+  try {
+    const { user_id } = req.user;
+
+    const usersShoppingCart = await shoppingCartRepo.getUserShoppingCart(
+      user_id
+    );
+
+    console.log({ usersShoppingCart });
+
+    const amount = usersShoppingCart.reduce(
+      (sum, item) => sum + Number(item.price),
+      0
+    );
+    console.log("amount", amount, amount * 100, typeof amount);
+    const OrderOptions = {
+      amount: amount * 100,
+      currency: "USD",
+      receipt: uuid(), // your internal reference
+    };
+    const order = await razorpay.orders.create(OrderOptions);
+
+    return res.status(200).json({
+      status: true,
+      message: "Create Checkout Order",
+      data: { order },
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      status: false,
+      message: "something went wrong while creating checkout",
+      data: null,
+    });
+  }
+};
 //shoppingCartList
 
 module.exports = {
@@ -363,6 +465,10 @@ module.exports = {
 
   userProfile,
   addToCart,
-  shoppingCartList
+  shoppingCartList,
+  removeFromCart,
+  checkout,
+
+  updateProjectDetails,
   // checkoutItem
 };

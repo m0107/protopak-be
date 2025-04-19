@@ -1,16 +1,12 @@
 const tablename = "user_products";
 exports.up = function (knex) {
   return knex.schema.createTable(tablename, function (table) {
-    table.increments("user_products_id").primary();
+    table.uuid("user_products_id").primary();
 
     table.bigInteger("project_id").notNullable().index();
 
     table.string("project_name").notNullable().defaultTo("untitled");
 
-    //table.timestamp('created_at').defaultTo(knex.fn.now());
-    //table.timestamp('updated_at').defaultTo(knex.fn.now());
-
-    // Reference to users table
     table.uuid("user_id").notNullable();
 
     table
@@ -42,6 +38,8 @@ exports.up = function (knex) {
     table.string("delivery").notNullable();
     table.jsonb("delivery_options").notNullable();
     table.boolean("is_deleted").defaultTo(false);
+
+    table.string("image_url").notNullable();
 
     table.timestamps(true, true);
   });

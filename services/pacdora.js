@@ -484,19 +484,19 @@ async function getUserProjects({ current, pageSize, userId, projectId }) {
     return response.data;
 
     /**[{
-"id":"",
-"name":"",
-"length":"",
-"width":"",
-"height":"",
-"screenshot":"",
-"createTime":"",
-"updateTime":"",
-"templateId":"",
-"modelId":"",
-"pacdoraUserId":"",
-"userId":""
-} ]*/
+    "id":"",
+    "name":"",
+    "length":"",
+    "width":"",
+    "height":"",
+    "screenshot":"",
+    "createTime":"",
+    "updateTime":"",
+    "templateId":"",
+    "modelId":"",
+    "pacdoraUserId":"",
+    "userId":""
+    } ]*/
   } catch (error) {
     console.error(
       "Fetching projects failed:",

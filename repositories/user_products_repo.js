@@ -1,19 +1,22 @@
 "use strict";
 
 const { knex } = require("../data/knex/index.js");
-// const { v4: uuidv4 } = require("uuid");
+const { v4: uuidv4 } = require("uuid");
 
 const constants = {
   name: "user_products",
-  id1: "user_id",
+  id1: "user_products_id",
   id2: "username",
   id3: "role_id",
   id4: "created_at",
   id5: "updated_at",
 };
 
-exports.insertProduct = (object, { trx } = {}) => {
+exports.insertProject = (object, { trx } = {}) => {
+  console.log("adding id", object);
+  object.user_products_id = uuidv4();
   // object[constants.id1] = uuidv4();
+  console.log("insserting...", object)
   return (trx || knex)(constants.name)
     .returning("*")
     .insert(object)
@@ -25,8 +28,22 @@ exports.insertProduct = (object, { trx } = {}) => {
     });
 };
 
-exports.findProductByFilter = (filter, { trx }) => {
+exports.updateProject = ({user_products_id, ...object}, { trx } = {}) => {
+  console.log("object", object);
   return (trx || knex)(constants.name)
+    .where({ user_products_id })
+    .update(object)
+    .then((res) => {
+      console.log("knex updateProduct", res);
+      return res[0];
+    })
+    .catch((error) => {
+      throw error;
+    });
+};
+
+exports.findProductByFilter = (filter) => {
+  return (knex)(constants.name)
     .where(filter)
     .select("*")
     .first()
@@ -292,7 +309,7 @@ exports.findProductByFilter = (filter, { trx }) => {
 //               from
 //                   now() - last_login
 //           ) < ${parseInt(process.env.REFRESH_TOKEN_EXPIRY || 86400)}
-//           and loggedout_at IS NULL 
+//           and loggedout_at IS NULL
 //           THEN true
 //           else false
 //       END
@@ -305,7 +322,7 @@ exports.findProductByFilter = (filter, { trx }) => {
 //       .leftJoin(
 //         "withdraw as w",
 //         knexRead.raw(
-//           `w.assigned_to = au.user_id and w.status = ? 
+//           `w.assigned_to = au.user_id and w.status = ?
 //           /*and ${knexRead.raw("w.created_at::date = now()::date")}*/
 //           `,
 //           ["to-pay"]
@@ -319,7 +336,7 @@ exports.findProductByFilter = (filter, { trx }) => {
 //                 from
 //                     now() - last_login
 //             ) < ${parseInt(process.env.REFRESH_TOKEN_EXPIRY || 86400)}
-//             and loggedout_at IS NULL 
+//             and loggedout_at IS NULL
 //             THEN true
 //             else false
 //         END

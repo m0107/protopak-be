@@ -1,4 +1,4 @@
-// const adminUserRepo = require("../repositories/admin_users_repo");
+const userProductsRepo = require("../repositories/user_products_repo");
 // const bcrypt = require("bcrypt");
 // const jwt = require("jsonwebtoken");
 // const Joi = require("joi");
@@ -15,6 +15,12 @@ const getUsersProducts = async (req, res) => {
     const productList = await getUserProjects({
       userId: req.user.pacdora_user_id,
     });
+
+    console.log("productList", productList.data);
+    for (let data of productList.data) {
+      const userProduct = await userProductsRepo.findProductByFilter({ project_id: data.id });
+      data.user_products = userProduct;
+    }
 
     return res
       .status(200)
