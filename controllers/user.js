@@ -7,8 +7,8 @@ const Joi = require("joi");
 const { knexRead, knex } = require("../data/knex/index");
 const { SingletonCache } = require("../helpers/cache");
 const { createId } = require("@paralleldrive/cuid2");
-const { uuid } = require("uuidv4");
-const { razorpay } = require("../services/razorpay/index");
+const { v4: uuidv4 } = require("uuid");
+const { razorpay, getReceiptDetails } = require("../services/razorpay/index");
 // const { razorpay } = require("../services/razorpay/index");
 const { getUserProjects } = require("../services/pacdora");
 
@@ -240,9 +240,7 @@ const userProfile = async (req, res) => {
 
 const addToCart = async (req, res) => {
   try {
-    const {
-      user_products_id
-    } = req.body;
+    const { user_products_id } = req.body;
 
     const { user_id } = req.user;
 
@@ -280,10 +278,10 @@ const updateProjectDetails = async (req, res) => {
       userId: req.user.pacdora_user_id,
       projectId: [project_id],
     });
-    
+
     console.log({ project_id });
     // console.log("**********", projects, projects.data);
-    const project = projects.data[0]
+    const project = projects.data[0];
     console.log("project", project);
 
     const {
@@ -323,20 +321,25 @@ const updateProjectDetails = async (req, res) => {
       delivery,
       delivery_options: JSON.stringify(delivery_options),
       image_url: project.screenshot,
-      project_name: project.name
+      project_name: project.name,
     };
 
     console.log(req.body, "insert into database", userProjuctObj);
 
     //TODO: To Check if project is present use - user_products_id
-    const isProjectPresent = await userProductsRepo.findProductByFilter({ project_id });
+    const isProjectPresent = await userProductsRepo.findProductByFilter({
+      project_id,
+    });
     console.log({ isProjectPresent });
     let result;
     if (isProjectPresent) {
-      console.log('updateProject...')
-      result = await userProductsRepo.updateProject({ ...isProjectPresent, ...userProjuctObj });
+      console.log("updateProject...");
+      result = await userProductsRepo.updateProject({
+        ...isProjectPresent,
+        ...userProjuctObj,
+      });
     } else {
-      console.log('insertProject...')
+      console.log("insertProject...");
       result = await userProductsRepo.insertProject(userProjuctObj);
     }
 
@@ -434,13 +437,19 @@ const checkout = async (req, res) => {
       0
     );
     console.log("amount", amount, amount * 100, typeof amount);
+
+    const receiptTemp = uuidv4();
+
     const OrderOptions = {
       amount: amount * 100,
       currency: "USD",
-      receipt: uuid(), // your internal reference
+      receipt: receiptTemp, // your internal reference
     };
-    const order = await razorpay.orders.create(OrderOptions);
+    // console.log('creating order..', OrderOptions);
 
+    const order = await razorpay.orders.create(OrderOptions);
+    console.log(order);
+    await myCache.set(`user_receipt_${user_id}`, receiptTemp, 600); // 600 seconds = 10 minutes
     return res.status(200).json({
       status: true,
       message: "Create Checkout Order",
@@ -457,6 +466,63 @@ const checkout = async (req, res) => {
 };
 //shoppingCartList
 
+const verifyPayment = async (req, res) => {
+  // const trx = await knex.transaction();
+  try {
+    const { user_id } = req.user;
+
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
+      req.body;
+    
+    console.log("req.body", req.body);
+
+    const { receipt } = req.body;
+
+    const userReceipt = await myCache.get(`user_receipt_${user_id}`);
+    console.log("userReceipt", { userReceipt, receipt });
+    if (userReceipt === receipt) {
+      await getReceiptDetails(receipt);
+    }
+
+    const secret = process.env.RAZORPAY_SECRET;
+    const generated_signature = crypto
+      .createHmac("sha256", secret)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest("hex");
+
+    if (generated_signature !== razorpay_signature) {
+      console.log("Failed!");
+      const orderObj = {
+        order_status: "",
+
+        razorpay_order_id,
+        razorpay_payment_id,
+        razorpay_signature,
+
+        amount: 0,
+        currency: "",
+        payment_method: '',
+        paid_at:'tiimestamp',
+        is_deleted: false,
+        metadata: '{}'
+      };
+    }
+
+    return res.status(200).json({
+      status: true,
+      message: "Create Checkout Order",
+      data: {},
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      status: false,
+      message: "something went wrong while creating checkout",
+      data: null,
+    });
+  }
+};
+
 module.exports = {
   createUser,
   login,
@@ -470,5 +536,6 @@ module.exports = {
   checkout,
 
   updateProjectDetails,
+  verifyPayment,
   // checkoutItem
 };

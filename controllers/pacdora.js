@@ -1,17 +1,11 @@
 const userProductsRepo = require("../repositories/user_products_repo");
-// const bcrypt = require("bcrypt");
-// const jwt = require("jsonwebtoken");
-// const Joi = require("joi");
-// const { knexRead, knex } = require("../data/knex/index");
-// const { SingletonCache } = require("../helpers/cache");
 const { getUserProjects, exportProjectsAsPDF, deleteUploadedProjects } = require("../services/pacdora");
-// let myCache = new SingletonCache().getInstance();
 
 const getUsersProducts = async (req, res) => {
-  console.log(">>>>>getPacdoraProducts");
+  // console.log(">>>>>getPacdoraProducts");
   try {
     // console.log("req.body", req.body, req.user);
-    console.log("111");
+    // console.log("111");
     const productList = await getUserProjects({
       userId: req.user.pacdora_user_id,
     });

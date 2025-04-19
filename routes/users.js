@@ -17,7 +17,9 @@ router.post("/addToCart", [auth], user.addToCart);
 router.post("/updateProduct", [auth], user.updateProjectDetails);
 //
 router.post("/removeFromCart", [auth], user.removeFromCart);
+
 router.post("/checkout", [auth], user.checkout);
+router.post("/verifyPayment", [auth], user.verifyPayment);
 //
 router.post("/shoppingCartList", [auth], user.shoppingCartList);
 //
