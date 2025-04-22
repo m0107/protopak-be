@@ -1,6 +1,9 @@
 const adminUserRepo = require("../repositories/admin_users_repo");
 const userProductsRepo = require("../repositories/user_products_repo");
 const shoppingCartRepo = require("../repositories/shopping_cart_repo");
+const shippingAddressRepo = require("../repositories/shipping_address_repo");
+const ordersRepo = require("../repositories/orders_repo");
+const userOrdersRepo = require("../repositories/user_orders_repo");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const Joi = require("joi");
@@ -11,6 +14,7 @@ const { v4: uuidv4 } = require("uuid");
 const { razorpay, getReceiptDetails } = require("../services/razorpay/index");
 // const { razorpay } = require("../services/razorpay/index");
 const { getUserProjects } = require("../services/pacdora");
+const crypto = require("crypto");
 
 let myCache = new SingletonCache().getInstance();
 
@@ -267,6 +271,61 @@ const addToCart = async (req, res) => {
   }
 };
 
+//
+
+const addShippingAddress = async (req, res) => {
+  try {
+    const { first_line, street_name, post_code } = req.body;
+    // console.log("req.body", req.body);
+
+    const { user_id } = req.user;
+
+    const result = await shippingAddressRepo.createShippingAddress({
+      first_line,
+      street_name,
+      post_code,
+      user_id,
+    });
+
+    return res.status(200).json({
+      status: true,
+      message: "Added to Shopping Cart.",
+      data: result,
+    });
+  } catch (err) {
+    // await trx.rollback();
+    console.error(err);
+    return res.status(500).json({
+      status: false,
+      message:
+        "something went wrong while creating admin user! Please try again.",
+      data: null,
+    });
+  }
+};
+
+const getShippingAddress = async (req, res) => {
+  try {
+    const { user_id } = req.user;
+    const result = await shippingAddressRepo.getUserShoppingCart(user_id);
+
+    return res.status(200).json({
+      status: true,
+      message: "getched Shippiing addresses",
+      data: result,
+    });
+  } catch (err) {
+    // await trx.rollback();
+    console.error(err);
+    return res.status(500).json({
+      status: false,
+      message:
+        "something went wrong while creating admin user! Please try again.",
+      data: null,
+    });
+  }
+};
+
 const updateProjectDetails = async (req, res) => {
   // const trx = await knex.transaction();
   try {
@@ -425,17 +484,17 @@ const checkout = async (req, res) => {
   // const trx = await knex.transaction();
   try {
     const { user_id } = req.user;
+    // const { shipping_address_id } = req.body;
 
     const usersShoppingCart = await shoppingCartRepo.getUserShoppingCart(
       user_id
     );
 
-    console.log({ usersShoppingCart });
-
     const amount = usersShoppingCart.reduce(
       (sum, item) => sum + Number(item.price),
       0
     );
+
     console.log("amount", amount, amount * 100, typeof amount);
 
     const receiptTemp = uuidv4();
@@ -445,7 +504,20 @@ const checkout = async (req, res) => {
       currency: "USD",
       receipt: receiptTemp, // your internal reference
     };
-    // console.log('creating order..', OrderOptions);
+
+    // const orderObj = {
+    //   shipping_address_id,
+    //   user_id,
+    //   order_status: 'created',
+
+    //   ...OrderOptions
+    // }
+    // console.log({
+    //   orderObj
+    // });
+    // // console.log('creating order..', OrderOptions);
+
+    // return;
 
     const order = await razorpay.orders.create(OrderOptions);
     console.log(order);
@@ -471,47 +543,85 @@ const verifyPayment = async (req, res) => {
   try {
     const { user_id } = req.user;
 
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
-      req.body;
-    
-    console.log("req.body", req.body);
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
 
-    const { receipt } = req.body;
+      amount,
+      currency,
+      receipt,
+
+      shipping_address_id,
+      entity,
+    } = req.body;
+
+    const orderObj = {
+      order_id: receipt,
+      user_id,
+      order_status: "success",
+
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+
+      amount,
+      currency,
+      shipping_address_id,
+
+      payment_method: entity,
+    };
+
+    console.log({ orderObj });
+
+    console.log("verifyPayment req.body", req.body);
 
     const userReceipt = await myCache.get(`user_receipt_${user_id}`);
     console.log("userReceipt", { userReceipt, receipt });
     if (userReceipt === receipt) {
-      await getReceiptDetails(receipt);
+      console.log("receipt matched!");
+      // await getReceiptDetails(receipt);
     }
 
-    const secret = process.env.RAZORPAY_SECRET;
-    const generated_signature = crypto
-      .createHmac("sha256", secret)
-      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-      .digest("hex");
+    const secret = process.env.RAZORPAY_KEY_SECRET;
+    console.log("secret", secret);
 
-    if (generated_signature !== razorpay_signature) {
-      console.log("Failed!");
-      const orderObj = {
-        order_status: "",
+    const hmac = crypto.createHmac("sha256", secret);
+    hmac.update(`${razorpay_order_id}|${razorpay_payment_id}`);
+    const generatedSignature = hmac.digest("hex");
 
-        razorpay_order_id,
-        razorpay_payment_id,
-        razorpay_signature,
+    const isVerified = generatedSignature === razorpay_signature;
+    console.log("isVerified", isVerified);
 
-        amount: 0,
-        currency: "",
-        payment_method: '',
-        paid_at:'tiimestamp',
-        is_deleted: false,
-        metadata: '{}'
-      };
+    if (!isVerified) {
+      return res.status(400).json({
+        status: false,
+        message: "invalid payment request",
+        data: null,
+      });
     }
 
+
+    const order = await ordersRepo.createOrder(orderObj);
+    console.log({ order });
+    const usersShoppingCartList = await shoppingCartRepo.getUserShoppingCart(user_id);
+    console.log({ usersShoppingCartList });
+    for (let cartItem of usersShoppingCartList) {
+      console.log("cartItem create user-order");
+      //project_id
+      await userOrdersRepo.createUserOrder({
+        order_id: order.order_id,
+        user_products_id: cartItem.user_products_id
+      });
+      console.log("cartItem deleting from cart!");
+      await shoppingCartRepo.deleteCartItem(cartItem.cart_id);
+      //also delete project id from pacdora ?
+    }
+    
     return res.status(200).json({
       status: true,
-      message: "Create Checkout Order",
-      data: {},
+      message: "Order Successfully Placed",
+      data: order,
     });
   } catch (err) {
     console.error(err);
@@ -522,6 +632,37 @@ const verifyPayment = async (req, res) => {
     });
   }
 };
+
+//
+
+
+const getOrders = async (req, res) => {
+  // const trx = await knex.transaction();
+  try {
+    const { user_id } = req.user;
+
+    const usersShoppingCart = await ordersRepo.getUserOrders(
+      user_id
+    );
+
+    console.log({ usersShoppingCart });
+
+    return res.status(200).json({
+      status: true,
+      message: "orders List Fetch Successfully",
+      data: usersShoppingCart,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      status: false,
+      message:
+        "something went wrong while creating admin user! Please try again.",
+      data: null,
+    });
+  }
+};
+
 
 module.exports = {
   createUser,
@@ -537,5 +678,8 @@ module.exports = {
 
   updateProjectDetails,
   verifyPayment,
+  addShippingAddress,
+  getShippingAddress,
+  getOrders,
   // checkoutItem
 };

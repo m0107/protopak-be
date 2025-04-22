@@ -9,6 +9,8 @@ router.post("/register", user.createUser);
 
 // router.post("/categories", pacdora.getPacdoraCategories);
 router.post("/products", [auth], pacdora.getUsersProducts);
+router.post("/orders", [auth], user.getOrders);
+//
 router.post("/deleteProduct", [auth], pacdora.deleteProduct);
 // router.post("/renameProduct", [auth], pacdora.deleteProduct);
 // router.post("/addProductToCart", [auth], pacdora.deleteProduct);
@@ -17,6 +19,9 @@ router.post("/addToCart", [auth], user.addToCart);
 router.post("/updateProduct", [auth], user.updateProjectDetails);
 //
 router.post("/removeFromCart", [auth], user.removeFromCart);
+///api/v1/users/
+router.post("/addShippingAddress", [auth], user.addShippingAddress);
+router.post("/getShippingAddress", [auth], user.getShippingAddress);
 
 router.post("/checkout", [auth], user.checkout);
 router.post("/verifyPayment", [auth], user.verifyPayment);

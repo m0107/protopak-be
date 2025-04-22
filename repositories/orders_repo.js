@@ -4,15 +4,11 @@ const { knex } = require("../data/knex/index.js");
 // const { v4: uuidv4 } = require("uuid");
 
 const constants = {
-  name: "shopping_cart",
-  id1: "shopping_cart_id",
-  id2: "username",
-  id3: "role_id",
-  id4: "created_at",
-  id5: "updated_at",
+  name: "orders",
+  id1: "order_id",
 };
 
-exports.createShoppingCart = (object, { trx } = {}) => {
+exports.createOrder = (object, { trx } = {}) => {
   // object[constants.id1] = uuidv4();
   return (trx || knex)(constants.name)
     .returning("*")
@@ -25,42 +21,63 @@ exports.createShoppingCart = (object, { trx } = {}) => {
     });
 };
 
-exports.getUserShoppingCart = (userId) => {
-  return (knex)(constants.name)
-  .join('user_products', 'shopping_cart.user_products_id', 'user_products.user_products_id')
-  .select(
-    'shopping_cart.shopping_cart_id as cart_id',
-    'shopping_cart.user_id',
-    'shopping_cart.is_selected',
-    'shopping_cart.customization',
-    'user_products.project_id',
-    'user_products.user_products_id',
-    'user_products.project_name',
-    'user_products.price',
-    'user_products.size',
-    'user_products.size_options',
-    'user_products.quantity_options',
-    'user_products.quantity',
-    'user_products.image_url',
-    'user_products.printSides',
-    'user_products.printSides_options',
-    'user_products.print',
-    'user_products.print_options',
-    'user_products.material',
-    'user_products.material_options',
-    'user_products.finishing',
-    'user_products.finishing_options',
-    'user_products.delivery',
-    'user_products.delivery_options',
-  )
-  .where('shopping_cart.user_id', '=', userId) // Replace with actual user_id
-  .then(rows => {
-    //console.log(rows);  
-    return rows;// The result of the join
-  })
-  .catch(err => {
-    console.error('Error:', err);
-  });
+exports.getUserOrders = (userId) => {
+  return knex(constants.name)
+    .where({
+      user_id: userId,
+    })
+    .select("*")
+    .catch((error) => {
+      throw error;
+    });
+};
+
+
+exports.getUserOrders = (userId) => {
+  return knex(constants.name + " as o")
+    .leftJoin("user_orders as uo", "uo.order_id", "o.order_id")
+    .leftJoin("user_products as up", "up.user_products_id", "uo.user_products_id")
+    .select([
+      "o.order_id",
+      "o.order_status",
+      "o.razorpay_order_id",
+      "o.razorpay_payment_id",
+      "o.razorpay_signature",
+      "o.amount",
+      "o.currency",
+      "o.shipping_address_id",
+      "o.payment_method",
+      // "o.paid_at",
+      knex.raw(`
+      COALESCE(
+        json_agg(
+          json_build_object(
+            'user_order_id', uo.user_order_id,
+            'user_products_id', uo.user_products_id,
+            'product_details', json_build_object(
+              'project_name', up.project_name,
+              'size', up.size,
+              'price', up.price,
+              'quantity', up.quantity,
+              'print', up.print,
+              'material', up.material,
+              'finishing', up.finishing,
+              'delivery', up.delivery
+            )
+          )
+        ) FILTER (WHERE uo.user_order_id IS NOT NULL),
+        '[]'
+      ) as user_orders
+    `),
+    ])
+    .where("o.user_id", userId)
+    .groupBy("o.order_id")
+    .then((res) => {
+      return res;
+    })
+    .catch((error) => {
+      throw error;
+    });
 };
 
 exports.findOneShoppingCartByFilter = (filter, { trx }) => {
@@ -171,11 +188,11 @@ exports.findOneShoppingCartByFilter = (filter, { trx }) => {
 exports.deleteCartItem = (id) => {
   return knex(constants.name)
     .returning("*")
-    .where({shopping_cart_id: id})
+    .where({ shopping_cart_id: id })
     .del()
     .then(() => {
       return null;
-    })
+    });
 };
 
 // exports.getAdminUserDataForDashboard = async ({
@@ -326,7 +343,7 @@ exports.deleteCartItem = (id) => {
 //               from
 //                   now() - last_login
 //           ) < ${parseInt(process.env.REFRESH_TOKEN_EXPIRY || 86400)}
-//           and loggedout_at IS NULL 
+//           and loggedout_at IS NULL
 //           THEN true
 //           else false
 //       END
@@ -339,7 +356,7 @@ exports.deleteCartItem = (id) => {
 //       .leftJoin(
 //         "withdraw as w",
 //         knexRead.raw(
-//           `w.assigned_to = au.user_id and w.status = ? 
+//           `w.assigned_to = au.user_id and w.status = ?
 //           /*and ${knexRead.raw("w.created_at::date = now()::date")}*/
 //           `,
 //           ["to-pay"]
@@ -353,7 +370,7 @@ exports.deleteCartItem = (id) => {
 //                 from
 //                     now() - last_login
 //             ) < ${parseInt(process.env.REFRESH_TOKEN_EXPIRY || 86400)}
-//             and loggedout_at IS NULL 
+//             and loggedout_at IS NULL
 //             THEN true
 //             else false
 //         END
