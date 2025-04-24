@@ -63,8 +63,8 @@ exports.getUserShoppingCart = (userId) => {
   });
 };
 
-exports.findOneShoppingCartByFilter = (filter, { trx }) => {
-  return (trx || knex)(constants.name)
+exports.findOneShoppingCartByFilter = (filter) => {
+  return (knex)(constants.name)
     .where(filter)
     .select("*")
     .first()

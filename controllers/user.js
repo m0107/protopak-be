@@ -248,6 +248,21 @@ const addToCart = async (req, res) => {
 
     const { user_id } = req.user;
 
+    const itemAlreadyInCart = await shoppingCartRepo.findOneShoppingCartByFilter({
+      user_products_id
+    });
+
+    console.log({ itemAlreadyInCart });
+
+    if (itemAlreadyInCart) {
+      return res.status(400).json({
+        status: false,
+        message: "Item already exists in cart",
+        data: itemAlreadyInCart,
+      });
+    }
+    
+
     const result = await shoppingCartRepo.createShoppingCart({
       user_id,
       user_products_id,
@@ -329,7 +344,7 @@ const getShippingAddress = async (req, res) => {
 const updateProjectDetails = async (req, res) => {
   // const trx = await knex.transaction();
   try {
-    const { project_id, user_products_id } = req.body;
+    const { project_id } = req.body;
 
     const { user_id } = req.user;
 
@@ -402,14 +417,57 @@ const updateProjectDetails = async (req, res) => {
       result = await userProductsRepo.insertProject(userProjuctObj);
     }
 
+    const updatedData = await userProductsRepo.findProductByFilter({
+      project_id,
+    });
+
+    console.log("Updateresult", result);
+
     //user_products_id
 
     // let result = await userProductsRepo.insertProject(userProjuctObj)
     return res.status(200).json({
       status: true,
       message: "Project values updated!.",
-      data: result,
+      data: updatedData,
     });
+  } catch (err) {
+    // await trx.rollback();
+    console.error(err);
+    return res.status(500).json({
+      status: false,
+      message:
+        "something went wrong while creating admin user! Please try again.",
+      data: null,
+    });
+  }
+};
+
+const getUserProjectDetails =  async (req, res) => {
+  // const trx = await knex.transaction();
+  try {
+    const { project_id } = req.body;
+ 
+    //TODO: To Check if project is present use - user_products_id
+    const isProjectPresent = await userProductsRepo.findProductByFilter({
+      project_id,
+    });
+
+    if (!isProjectPresent) {
+      return res.status(400).json({
+        status: true,
+        message: "Invalid Project Id!.",
+        data: {},
+      });
+    }
+    
+    return res.status(200).json({
+      status: true,
+      message: "fetched value",
+      data: isProjectPresent,
+    });
+
+    
   } catch (err) {
     // await trx.rollback();
     console.error(err);
@@ -490,10 +548,12 @@ const checkout = async (req, res) => {
       user_id
     );
 
-    const amount = usersShoppingCart.reduce(
+    let amount = usersShoppingCart.reduce(
       (sum, item) => sum + Number(item.price),
       0
     );
+
+    amount = Math.round(amount);
 
     console.log("amount", amount, amount * 100, typeof amount);
 
@@ -677,6 +737,7 @@ module.exports = {
   checkout,
 
   updateProjectDetails,
+  getUserProjectDetails,
   verifyPayment,
   addShippingAddress,
   getShippingAddress,
