@@ -55,7 +55,7 @@ exports.getUserShoppingCart = (userId) => {
   )
   .where('shopping_cart.user_id', '=', userId) // Replace with actual user_id
   .then(rows => {
-    //console.log(rows);  
+    console.log(rows);  
     return rows;// The result of the join
   })
   .catch(err => {

@@ -27,6 +27,7 @@ router.post("/checkout", [auth], user.checkout);
 router.post("/verifyPayment", [auth], user.verifyPayment);
 //
 router.post("/shoppingCartList", [auth], user.shoppingCartList);
+router.post("/google/auth", user.googleLogin);
 //
 
 module.exports = router;

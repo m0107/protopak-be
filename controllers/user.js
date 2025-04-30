@@ -11,9 +11,10 @@ const { knexRead, knex } = require("../data/knex/index");
 const { SingletonCache } = require("../helpers/cache");
 const { createId } = require("@paralleldrive/cuid2");
 const { v4: uuidv4 } = require("uuid");
-const { razorpay, getReceiptDetails } = require("../services/razorpay/index");
+const { razorpay } = require("../services/razorpay/index");
 // const { razorpay } = require("../services/razorpay/index");
 const { getUserProjects } = require("../services/pacdora");
+const googleAuth = require("../services/google_auth");
 const crypto = require("crypto");
 
 let myCache = new SingletonCache().getInstance();
@@ -181,6 +182,81 @@ const login = async (req, res) => {
   }
 };
 
+const googleLogin = async (req, res) => {
+  try {
+    // g_auth_token
+    //googleAuth.verifyToken
+
+    const body = req.body;
+    let validator = Joi.object({
+      g_auth_token: Joi.string().required(),
+    });
+    validator = validator.validate({
+      g_auth_token: body.g_auth_token,
+    });
+
+    if (validator.error) {
+      return res.status(400).json({
+        status: false,
+        message: validator.error.message,
+        data: null,
+      });
+    }
+
+    const googleAuthVerifyTokenResult = await googleAuth.verifyToken(
+      body.g_auth_token
+    );
+
+    console.log("googleAuthVerifyTokenResult", googleAuthVerifyTokenResult);
+
+    let adminUser = await adminUserRepo.readAdminByEmail(
+      googleAuthVerifyTokenResult.email
+    );
+
+    console.log("adminUser", adminUser);
+
+    if (!adminUser) {
+      return res.status(400).json({
+        status: false,
+        message: "Email not registerd",
+        data: null,
+      });
+    } else {
+      const token = await jwt.sign(
+        {
+          id: adminUser.user_id,
+          email: adminUser.email,
+        },
+        process.env.JWT_TOKEN,
+        {
+          expiresIn: parseInt(process.env.REFRESH_TOKEN_EXPIRY),
+        }
+      );
+
+      return res
+        .status(200)
+        .header("Access-Control-Expose-Headers", "token")
+        .setHeader("token", token)
+        .json({
+          status: true,
+          message: "Login successful.",
+          data: {
+            user_id: adminUser.user_id,
+            email: adminUser.email,
+            pacdora_user_id: adminUser.pacdora_user_id,
+          },
+        });
+    }
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({
+      status: false,
+      message: "something went wrong while logging in! Please try again.",
+      data: null,
+    });
+  }
+};
+
 const deleteUser = async (req, res) => {
   try {
     const body = req.body;
@@ -248,9 +324,10 @@ const addToCart = async (req, res) => {
 
     const { user_id } = req.user;
 
-    const itemAlreadyInCart = await shoppingCartRepo.findOneShoppingCartByFilter({
-      user_products_id
-    });
+    const itemAlreadyInCart =
+      await shoppingCartRepo.findOneShoppingCartByFilter({
+        user_products_id,
+      });
 
     console.log({ itemAlreadyInCart });
 
@@ -261,7 +338,6 @@ const addToCart = async (req, res) => {
         data: itemAlreadyInCart,
       });
     }
-    
 
     const result = await shoppingCartRepo.createShoppingCart({
       user_id,
@@ -443,11 +519,11 @@ const updateProjectDetails = async (req, res) => {
   }
 };
 
-const getUserProjectDetails =  async (req, res) => {
+const getUserProjectDetails = async (req, res) => {
   // const trx = await knex.transaction();
   try {
     const { project_id } = req.body;
- 
+
     //TODO: To Check if project is present use - user_products_id
     const isProjectPresent = await userProductsRepo.findProductByFilter({
       project_id,
@@ -460,14 +536,12 @@ const getUserProjectDetails =  async (req, res) => {
         data: {},
       });
     }
-    
+
     return res.status(200).json({
       status: true,
       message: "fetched value",
       data: isProjectPresent,
     });
-
-    
   } catch (err) {
     // await trx.rollback();
     console.error(err);
@@ -578,7 +652,7 @@ const checkout = async (req, res) => {
     // // console.log('creating order..', OrderOptions);
 
     // return;
-
+    console.log("createing order");
     const order = await razorpay.orders.create(OrderOptions);
     console.log(order);
     await myCache.set(`user_receipt_${user_id}`, receiptTemp, 600); // 600 seconds = 10 minutes
@@ -661,23 +735,24 @@ const verifyPayment = async (req, res) => {
       });
     }
 
-
     const order = await ordersRepo.createOrder(orderObj);
     console.log({ order });
-    const usersShoppingCartList = await shoppingCartRepo.getUserShoppingCart(user_id);
+    const usersShoppingCartList = await shoppingCartRepo.getUserShoppingCart(
+      user_id
+    );
     console.log({ usersShoppingCartList });
     for (let cartItem of usersShoppingCartList) {
       console.log("cartItem create user-order");
       //project_id
       await userOrdersRepo.createUserOrder({
         order_id: order.order_id,
-        user_products_id: cartItem.user_products_id
+        user_products_id: cartItem.user_products_id,
       });
       console.log("cartItem deleting from cart!");
       await shoppingCartRepo.deleteCartItem(cartItem.cart_id);
       //also delete project id from pacdora ?
     }
-    
+
     return res.status(200).json({
       status: true,
       message: "Order Successfully Placed",
@@ -695,15 +770,12 @@ const verifyPayment = async (req, res) => {
 
 //
 
-
 const getOrders = async (req, res) => {
   // const trx = await knex.transaction();
   try {
     const { user_id } = req.user;
 
-    const usersShoppingCart = await ordersRepo.getUserOrders(
-      user_id
-    );
+    const usersShoppingCart = await ordersRepo.getUserOrders(user_id);
 
     console.log({ usersShoppingCart });
 
@@ -722,11 +794,10 @@ const getOrders = async (req, res) => {
     });
   }
 };
-
-
 module.exports = {
   createUser,
   login,
+  googleLogin,
   deleteUser,
   logoutUser,
 
