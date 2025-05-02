@@ -62,7 +62,8 @@ exports.getUserOrders = (userId) => {
               'print', up.print,
               'material', up.material,
               'finishing', up.finishing,
-              'delivery', up.delivery
+              'delivery', up.delivery,
+              'image_url', up.image_url
             )
           )
         ) FILTER (WHERE uo.user_order_id IS NOT NULL),

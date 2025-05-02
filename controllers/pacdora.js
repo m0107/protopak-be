@@ -10,7 +10,7 @@ const getUsersProducts = async (req, res) => {
       userId: req.user.pacdora_user_id,
     });
 
-    console.log("productList", productList.data);
+    // console.log("productList", productList.data);
     for (let data of productList.data) {
       const userProduct = await userProductsRepo.findProductByFilter({ project_id: data.id });
       data.user_products = userProduct;

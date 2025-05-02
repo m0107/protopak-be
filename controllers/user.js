@@ -100,6 +100,8 @@ const createUser = async (req, res) => {
 const login = async (req, res) => {
   try {
     const body = req.body;
+    console.log("login body", body);
+
     let validator = Joi.object({
       email: Joi.string().required(),
       password: Joi.string().required(),
@@ -109,6 +111,7 @@ const login = async (req, res) => {
       password: body.password,
     });
     if (validator.error) {
+      console.log(validator.error);
       return res.status(400).json({
         status: false,
         message: validator.error.message,
