@@ -20,8 +20,7 @@ const PACDORA_URLS = {
   BEHAVIOR_STATS: `${PACDORA_BASE_URL}/behavior/statistic`,
   DESIGN_AREA: (projectId) =>
     `${PACDORA_BASE_URL}/user/projects/${projectId}/design/area`,
-  EXPORT_PDF_STATUS: (taskId) =>
-    `${PACDORA_BASE_URL}/user/projects/export/pdf?taskId=${taskId}`,
+  EXPORT_PDF_STATUS: `${PACDORA_BASE_URL}/user/projects/export/pdf`,
   EXPORT_KNIFE_STATUS: (taskId) =>
     `${PACDORA_BASE_URL}/user/projects/export/knife?taskId=${taskId}`,
   WORKBENCH_TEMPLATES: `${PACDORA_BASE_URL}/open/v1/workbench/templates`, // duplicate /open/v1/open/v1/ was likely a typo
@@ -79,16 +78,61 @@ async function updateUserBaseInfo({
  * @param {string} [params.config.trimColor] - Hex code for trim color
  * @returns {Promise<Object>} - Response from the API
  */
-async function exportProjectsAsPDF({ projectIds, config = {} }) {
+async function exportProjectsAsPDF({ projectIds, taskId, config = {} }) {
   const url = PACDORA_URLS.EXPORT_PDF;
+
+  const data = {
+    config,
+  };
+
+  if (taskId) {
+    data.taskId = taskId;
+  } else {
+    data.projectIds = projectIds;
+  }
+
+  try {
+    const response = await axios.post(url, data, { headers });
+    return response.data;
+  } catch (error) {
+    console.error("Export failed:", error.response?.data || error.message);
+    throw error;
+  }
+}
+
+async function downloadKnife({ projectIds, taskId,config = {} }) {
+  const url = PACDORA_URLS.EXPORT_KNIFE;
+  // console.log("EXPORT_KNIFE_STATUS url", taskId, url);
 
   const data = {
     projectIds,
     config,
   };
 
+  if (taskId) {
+    data.taskId = taskId;
+  } else {
+    data.projectIds = projectIds;
+  }
+
   try {
     const response = await axios.post(url, data, { headers });
+    return response.data;
+  } catch (error) {
+    console.error("Export failed:", error.response?.data || error.message);
+    throw error;
+  }
+}
+
+async function checkPdfStatus(taskId) {
+  const url = PACDORA_URLS.EXPORT_PDF_STATUS;
+  console.log("EXPORT_KNIFE_STATUS url", taskId, url);
+
+  try {
+    console.log({
+      url, headers
+    })
+    const response = await axios.get(`${url}?taskId=${taskId}`, { headers });
     return response.data;
   } catch (error) {
     console.error("Export failed:", error.response?.data || error.message);
@@ -526,4 +570,7 @@ module.exports = {
   deleteUploadedProjects,
   getDesignArea,
   getWorkbenchTemplates,
+
+  checkPdfStatus,
+  downloadKnife
 };

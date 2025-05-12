@@ -16,7 +16,7 @@ exports.insertProject = (object, { trx } = {}) => {
   console.log("adding id", object);
   object.user_products_id = uuidv4();
   // object[constants.id1] = uuidv4();
-  console.log("insserting...", object)
+  console.log("insserting...", object);
   return (trx || knex)(constants.name)
     .returning("*")
     .insert(object)
@@ -28,7 +28,7 @@ exports.insertProject = (object, { trx } = {}) => {
     });
 };
 
-exports.updateProject = ({user_products_id, ...object}, { trx } = {}) => {
+exports.updateProject = ({ user_products_id, ...object }, { trx } = {}) => {
   console.log("object", object);
   return (trx || knex)(constants.name)
     .where({ user_products_id })
@@ -43,12 +43,44 @@ exports.updateProject = ({user_products_id, ...object}, { trx } = {}) => {
 };
 
 exports.findProductByFilter = (filter) => {
-  return (knex)(constants.name)
+  console.log("findProductByFilter", filter)
+  return knex(constants.name)
     .where(filter)
     .select("*")
     .first()
     .catch((error) => {
       throw error;
+    });
+};
+
+exports.getActiveProductsList = (modelIds) => {
+
+  console.log('modelIds', modelIds);
+  return knex("user_products as up")
+    .select(
+      "up.*",
+      knex.raw(
+        "CASE WHEN uo.user_products_id IS NOT NULL THEN true ELSE false END as is_order_placed"
+      ),
+      knex.raw(
+        "CASE WHEN sc.user_products_id IS NOT NULL THEN true ELSE false END as added_to_cart"
+      )
+    )
+    .leftJoin("user_orders as uo", "up.user_products_id", "uo.user_products_id")
+    .leftJoin(
+      "shopping_cart as sc",
+      "up.user_products_id",
+      "sc.user_products_id"
+    )
+    .whereIn("up.project_id", modelIds)
+    .groupBy(
+      "up.user_products_id",
+      "uo.user_products_id",
+      "sc.user_products_id"
+    )
+    .then((res) => {
+      console.log("knex getActiveProductsList", res);
+      return res;
     });
 };
 

@@ -11,7 +11,7 @@ const myCache = new SingletonCache().getInstance();
 
 module.exports = async (req, res, next) => {
 
-  console.log("AUTH---");
+  // console.log("AUTH---");
  
   try {
     let token = req.body.token || req.query.token || req.headers["x-access-token"];
@@ -31,7 +31,7 @@ module.exports = async (req, res, next) => {
     console.log(">>>>>>>>token:",token);
 
     const decoded = jwt.verify(token, process.env.JWT_TOKEN);
-    console.log({ decoded });
+    // console.log({ decoded });
     const userId = decoded.id;
 
     const user = await adminUserRepo.readAdminUserById(decoded.id);

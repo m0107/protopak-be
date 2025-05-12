@@ -3,6 +3,9 @@ const userProductsRepo = require("../repositories/user_products_repo");
 const shoppingCartRepo = require("../repositories/shopping_cart_repo");
 const shippingAddressRepo = require("../repositories/shipping_address_repo");
 const ordersRepo = require("../repositories/orders_repo");
+const userSubscriptionsRepo = require("../repositories/user_subscriptions_repo");
+const subscriptionsrepo = require("../repositories/subscriptions_repo");
+const downloadDinelineRepo = require("../repositories/download_dineline_repo");
 const userOrdersRepo = require("../repositories/user_orders_repo");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
@@ -13,7 +16,11 @@ const { createId } = require("@paralleldrive/cuid2");
 const { v4: uuidv4 } = require("uuid");
 const { razorpay } = require("../services/razorpay/index");
 // const { razorpay } = require("../services/razorpay/index");
-const { getUserProjects } = require("../services/pacdora");
+const {
+  getUserProjects,
+  exportProjectsAsPDF,
+  checkPdfStatus,
+} = require("../services/pacdora");
 const googleAuth = require("../services/google_auth");
 const crypto = require("crypto");
 
@@ -797,6 +804,266 @@ const getOrders = async (req, res) => {
     });
   }
 };
+
+const getSubscriptions = async (req, res) => {
+  try {
+    const usersShoppingCart = await subscriptionsrepo.getSubscriptions();
+
+    console.log({ usersShoppingCart });
+
+    return res.status(200).json({
+      status: true,
+      message: "subscription List Fetch Successfully",
+      data: usersShoppingCart,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      status: false,
+      message: "something went wrong while fetching subscription list.",
+      data: null,
+    });
+  }
+};
+
+const buySubscription = async (req, res) => {
+  try {
+    const { user_id } = req.user;
+    const { subscription_id } = req.body;
+
+    const subscriptionDetails = await subscriptionsrepo.getSubscriptionById(
+      subscription_id
+    );
+
+    let amount = subscriptionDetails.amount;
+
+    amount = Math.round(amount);
+
+    const receiptTemp = uuidv4();
+
+    const OrderOptions = {
+      amount: amount * 100,
+      currency: "USD",
+      receipt: receiptTemp, // your internal reference
+    };
+
+    const order = await razorpay.orders.create(OrderOptions);
+
+    await myCache.set(`user_subscription_receipt_${user_id}`, receiptTemp, 600);
+    return res.status(200).json({
+      status: true,
+      message: "Create Subscription Order Successful",
+      data: { order },
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      status: false,
+      message: "something went wrong while creating checkout",
+      data: null,
+    });
+  }
+};
+
+const verifySubscriptionPayment = async (req, res) => {
+  // const trx = await knex.transaction();
+  try {
+    const { user_id } = req.user;
+
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+
+      amount,
+      currency,
+      receipt,
+
+      entity,
+      subscription_id,
+    } = req.body;
+
+    const orderObj = {
+      user_subscription_id: receipt,
+      user_id,
+      order_status: "paid",
+
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+
+      amount,
+      currency,
+      subscription_id,
+      payment_method: entity,
+    };
+
+    console.log({ orderObj });
+
+    console.log("verifyPayment req.body", req.body);
+
+    const userReceipt = await myCache.get(
+      `user_subscription_receipt_${user_id}`
+    );
+    console.log("userReceipt", { userReceipt, receipt });
+    if (userReceipt === receipt) {
+      console.log("receipt matched!");
+      // await getReceiptDetails(receipt);
+    }
+
+    const secret = process.env.RAZORPAY_KEY_SECRET;
+    console.log("secret", secret);
+
+    const hmac = crypto.createHmac("sha256", secret);
+    hmac.update(`${razorpay_order_id}|${razorpay_payment_id}`);
+    const generatedSignature = hmac.digest("hex");
+
+    const isVerified = generatedSignature === razorpay_signature;
+    console.log("isVerified", isVerified);
+
+    if (!isVerified) {
+      return res.status(400).json({
+        status: false,
+        message: "invalid payment request",
+        data: null,
+      });
+    }
+
+    const subsccriptionOrder = await userSubscriptionsRepo.createOrder(
+      orderObj
+    );
+
+    console.log("subsccriptionOrder", subsccriptionOrder);
+
+    // const order = await ordersRepo.createOrder(orderObj);
+    // console.log({ order });
+    // const usersShoppingCartList = await shoppingCartRepo.getUserShoppingCart(
+    //   user_id
+    // );
+    // console.log({ usersShoppingCartList });
+    // for (let cartItem of usersShoppingCartList) {
+    //   console.log("cartItem create user-order");
+    //    await userOrdersRepo.createUserOrder({
+    //     order_id: order.order_id,
+    //     user_products_id: cartItem.user_products_id,
+    //   });
+    //   console.log("cartItem deleting from cart!");
+    //   await shoppingCartRepo.deleteCartItem(cartItem.cart_id);
+    //  }
+
+    return res.status(200).json({
+      status: true,
+      message: "Order Successfully Placed",
+      data: subsccriptionOrder,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      status: false,
+      message: "something went wrong while creating checkout",
+      data: null,
+    });
+  }
+};
+
+const getPendingDielieDownloadCount = async (req, res) => {
+  try {
+    const { user_id } = req.user;
+
+    const count = await userSubscriptionsRepo.downloadDielineCount(user_id);
+    const allowed = parseInt(count.allowed_downloads) || 0;
+    const used = parseInt(count.used_downloads) || 0;
+    const remaining = allowed - used;
+    console.log("count", count);
+    return res.status(200).json({
+      status: true,
+      message: "Create Subscription Order Successful",
+      data: { remaining },
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      status: false,
+      message: "something went wrong while creating checkout",
+      data: null,
+    });
+  }
+};
+
+const downloadDieline = async (req, res) => {
+  console.log(">>>>>getPacdoraProducts");
+  try {
+    const { user_id } = req.user;
+    const { project_id } = req.body;
+
+    let downloadResult = await downloadDinelineRepo.getDielineDownloadsByFilter(
+      {
+        project_id: String(project_id),
+      }
+    );
+
+    console.log("downloadResult", downloadResult);
+
+    if (downloadResult.length) {
+      downloadResult = downloadResult[0];
+      console.log("Project Exists!");
+
+      const pdfStatus = await checkPdfStatus(downloadResult.task_id);
+      console.log("pdfStatus", pdfStatus);
+
+      return res.status(200).json({
+        status: true,
+        message: "Dieline Download",
+        data: downloadResult,
+      });
+    }
+
+    console.log("req.body", req.body);
+    const userProjectsDetails = await userProductsRepo.findProductByFilter({
+      project_id: project_id,
+    });
+    console.log("userProjectsDetails", userProjectsDetails);
+    if (!userProjectsDetails) {
+      return res.status(400).json({
+        status: false,
+        message: "Inavalid Projectid",
+        data: null,
+      });
+    }
+    console.log("userProjectsDetails".userProjectsDetails);
+    const pdfExportData = await exportProjectsAsPDF({
+      projectIds: [project_id],
+    });
+    const projectData = pdfExportData.data[0];
+    console.log({ projectData });
+    const insertObj = {
+      // dieline_downloads_id,
+      user_id,
+      user_products_id: userProjectsDetails.user_products_id,
+      project_id: projectData.projectId,
+      pdf_task_id: projectData.taskId,
+    };
+    console.log("insertObj", insertObj);
+
+    const insertedObj = await downloadDinelineRepo.createDielineDownloads(
+      insertObj
+    );
+
+    return res.status(200).json({
+      status: true,
+      message: "Dieline Download Initiated, Please try again after 1min",
+      data: insertedObj,
+    });
+  } catch (err) {
+    console.log(err.message);
+    return res.status(500).json({
+      status: false,
+      message: err.message,
+      data: null,
+    });
+  }
+};
+
 module.exports = {
   createUser,
   login,
@@ -816,5 +1083,11 @@ module.exports = {
   addShippingAddress,
   getShippingAddress,
   getOrders,
-  // checkoutItem
+
+  getSubscriptions,
+  buySubscription,
+  verifySubscriptionPayment,
+
+  getPendingDielieDownloadCount,
+  downloadDieline,
 };
