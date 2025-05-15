@@ -8,7 +8,7 @@ exports.seed = async (knex) => {
       return knex("users").insert([
         {
           user_id: uuidv4(),
-          email: "admin@gmail.com",
+          email: "admin1@gmail.com",
           pacdora_user_id: "x9YP6Q7iCzEkhy2n4XfgbHLsmowqJAZ",
           password: await bcrypt.hash("Abcd@1234", salt),
           is_email_verified: true,
