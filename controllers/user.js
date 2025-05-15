@@ -19,7 +19,13 @@ const { razorpay } = require("../services/razorpay/index");
 const {
   getUserProjects,
   exportProjectsAsPDF,
+  exportProjectsAsKnife,
+  exportProjectsAsAi,
+  exportProjectsAsDxf,
   checkPdfStatus,
+  checkAiStatus,
+  checkDxfStatus,
+  checkKnifeStatus,
 } = require("../services/pacdora");
 const googleAuth = require("../services/google_auth");
 const crypto = require("crypto");
@@ -826,6 +832,31 @@ const getSubscriptions = async (req, res) => {
   }
 };
 
+const getUserSubscriptions = async (req, res) => {
+  try {
+    const { user_id } = req.user;
+
+    const usersShoppingCart = await userSubscriptionsRepo.getSubscriptionByFilter({
+      user_id,
+    });
+
+    console.log({ usersShoppingCart });
+
+    return res.status(200).json({
+      status: true,
+      message: "subscription List Fetch Successfully",
+      data: usersShoppingCart,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      status: false,
+      message: "something went wrong while fetching subscription list.",
+      data: null,
+    });
+  }
+};
+
 const buySubscription = async (req, res) => {
   try {
     const { user_id } = req.user;
@@ -969,7 +1000,6 @@ const verifySubscriptionPayment = async (req, res) => {
 const getPendingDielieDownloadCount = async (req, res) => {
   try {
     const { user_id } = req.user;
-
     const count = await userSubscriptionsRepo.downloadDielineCount(user_id);
     const allowed = parseInt(count.allowed_downloads) || 0;
     const used = parseInt(count.used_downloads) || 0;
@@ -978,7 +1008,30 @@ const getPendingDielieDownloadCount = async (req, res) => {
     return res.status(200).json({
       status: true,
       message: "Create Subscription Order Successful",
-      data: { remaining },
+      data: { remaining, total: allowed, used },
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      status: false,
+      message: "something went wrong while creating checkout",
+      data: null,
+    });
+  }
+};
+
+const getUserDieline = async (req, res) => {
+  try {
+    const { user_id } = req.user;
+    const userDielines = await downloadDinelineRepo.getDielineDownloadsByFilter(
+      {
+        user_id,
+      }
+    );
+    return res.status(200).json({
+      status: true,
+      message: "Successfully Fetched!",
+      data: userDielines,
     });
   } catch (err) {
     console.error(err);
@@ -991,7 +1044,7 @@ const getPendingDielieDownloadCount = async (req, res) => {
 };
 
 const downloadDieline = async (req, res) => {
-  console.log(">>>>>getPacdoraProducts");
+  // console.log(">>>>>getPacdoraProducts");
   try {
     const { user_id } = req.user;
     const { project_id } = req.body;
@@ -1006,19 +1059,89 @@ const downloadDieline = async (req, res) => {
 
     if (downloadResult.length) {
       downloadResult = downloadResult[0];
-      console.log("Project Exists!");
+      console.log("^^^^^Project Exists!");
+      const updates = {};
 
-      const pdfStatus = await checkPdfStatus(downloadResult.task_id);
-      console.log("pdfStatus", pdfStatus);
+      if (!downloadResult.pdf_file_url) {
+        const pdfStatus = await checkPdfStatus(downloadResult.pdf_task_id);
+        if (pdfStatus.data && pdfStatus.data.filePath) {
+          updates.pdf_file_url = pdfStatus.data.filePath;
+        } else {
+          console.error(
+            "checkPdfStatus",
+            downloadResult.pdf_task_id,
+            pdfStatus
+          );
+        }
+      }
+
+      if (!downloadResult.ai_file_url) {
+        const aiStatus = await checkAiStatus(downloadResult.pdf_task_id);
+        if (aiStatus.data && aiStatus.data.filePath) {
+          updates.pdf_file_url = aiStatus.data.filePath;
+        } else {
+          console.error("checkAiStatus", downloadResult.pdf_task_id, aiStatus);
+        }
+      }
+
+      // if (!downloadResult.dxf_file_url) {
+      //   const dsfStatus = await checkDxfStatus(downloadResult.pdf_task_id);
+      //   console.log("dsfStatus", dsfStatus);
+      //   if (dsfStatus.data && dsfStatus.data.filePath) {
+      //     updates.dxf_file_url = dsfStatus.data.filePath;
+      //   }
+      // }
+
+      console.log("updates obj ", updates, Object.keys(updates).length);
+
+      // if (!downloadResult.knife_file_url) {
+      //   const knifeStatus = await checkKnifeStatus(downloadResult.pdf_task_id);
+      //   console.log("knifeStatus", knifeStatus);
+      //   if (knifeStatus.data && knifeStatus.data.filePath) {
+      //     updates.knife_file_url = knifeStatus.data.filePath;
+      //   }
+      // }
+
+      if (Object.keys(updates).length) {
+        let res = await downloadDinelineRepo.updateDielineDownloads(
+          downloadResult.dieline_downloads_id,
+          updates
+        );
+        console.log("updateDielineDownloads res", res);
+        // return res.status(200).json({
+        //   status: true,
+        //   message: "Dieline Download",
+        //   data: res,
+        // });
+      }
 
       return res.status(200).json({
         status: true,
-        message: "Dieline Download",
+        message:
+          "Dieline download has been initiated. Your file will be ready soon",
         data: downloadResult,
       });
     }
 
-    console.log("req.body", req.body);
+    const { allowed_downloads, used_downloads } =
+      await userSubscriptionsRepo.downloadDielineCount(user_id);
+    const remaining = parseInt(allowed_downloads) - parseInt(used_downloads);
+    console.log(
+      "downloads remaining",
+      { allowed_downloads, used_downloads },
+      remaining
+    );
+
+    if (!(remaining >= 1)) {
+      return res.status(400).json({
+        status: false,
+        message:
+          "Dieline download is unavailable. Please purchase a plan to enable downloads.",
+        data: null,
+      });
+    }
+
+    // console.log("req.body", req.body);
     const userProjectsDetails = await userProductsRepo.findProductByFilter({
       project_id: project_id,
     });
@@ -1030,19 +1153,38 @@ const downloadDieline = async (req, res) => {
         data: null,
       });
     }
-    console.log("userProjectsDetails".userProjectsDetails);
+    // console.log("userProjectsDetails".userProjectsDetails);
     const pdfExportData = await exportProjectsAsPDF({
       projectIds: [project_id],
     });
-    const projectData = pdfExportData.data[0];
-    console.log({ projectData });
+    const knifeExportData = await exportProjectsAsKnife({
+      projectIds: [project_id],
+    });
+    const dxfExportData = await exportProjectsAsDxf({
+      projectIds: [project_id],
+    });
+    const aiExportData = await exportProjectsAsAi({
+      projectIds: [project_id],
+    });
+
+    console.log({
+      pdfExportData,
+      knifeExportData,
+      dxfExportData,
+      aiExportData,
+    });
+
     const insertObj = {
-      // dieline_downloads_id,
       user_id,
       user_products_id: userProjectsDetails.user_products_id,
-      project_id: projectData.projectId,
-      pdf_task_id: projectData.taskId,
+      project_id: project_id,
+      pdf_task_id: pdfExportData.data[0].taskId,
+      // knife_task_id: knifeExportData.data[0].taskId, //not added to migartaion
+      ai_task_id: aiExportData.data[0].taskId,
+      dxf_task_id: dxfExportData.data.taskId,
+      dxf_file_url: dxfExportData.data.filePath,
     };
+
     console.log("insertObj", insertObj);
 
     const insertedObj = await downloadDinelineRepo.createDielineDownloads(
@@ -1090,4 +1232,7 @@ module.exports = {
 
   getPendingDielieDownloadCount,
   downloadDieline,
+  getUserDieline,
+
+  getUserSubscriptions
 };

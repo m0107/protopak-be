@@ -64,7 +64,7 @@ const deleteProduct = async (req, res) => {
 };
 
 const downloadDieline = async (req, res) => {
-  console.log(">>>>>getPacdoraProducts");
+  // console.log(">>>>>getPacdoraProducts");
   try {
     console.log("req.body", req.body, req.user);
     const { project_id } = req.body;
@@ -72,14 +72,14 @@ const downloadDieline = async (req, res) => {
       projectIds: [project_id],
     });
 
-    console.log("111", productList);
+    // console.log("111", productList);
     
-    const downloadKnifeREsult = await downloadKnife({
-      projectIds: [project_id],
-      taskId: productList.data[0].taskId
-    });
+    // const downloadKnifeREsult = await downloadKnife({
+    //   projectIds: [project_id],
+    //   taskId: productList.data[0].taskId
+    // });
 
-    console.log("downloadKnifeREsult", downloadKnifeREsult);
+    // console.log("downloadKnifeREsult", downloadKnifeREsult);
 
     
 

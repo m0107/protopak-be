@@ -28,7 +28,7 @@ module.exports = async (req, res, next) => {
     }
     
     // token = token.split(" ")[1];
-    console.log(">>>>>>>>token:",token);
+    // console.log(">>>>>>>>token:",token);
 
     const decoded = jwt.verify(token, process.env.JWT_TOKEN);
     // console.log({ decoded });

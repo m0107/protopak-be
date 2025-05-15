@@ -51,6 +51,8 @@ exports.up = async function (knex) {
     table.string("ai_file_url").comment('This is given by API team to track status of download-dieline');
     table.string("dxf_task_id").comment('This is given by API team to track status of download-dieline');
     table.string("dxf_file_url").comment('This is given by API team to track status of download-dieline');
+    table.string("knife_task_id").comment('This is given by API team to track status of download-dieline');
+    table.string("knife_file_url").comment('This is given by API team to track status of download-dieline');
     table.timestamps(true, true);
   });
 };

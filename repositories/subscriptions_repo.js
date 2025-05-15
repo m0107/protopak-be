@@ -39,3 +39,13 @@ exports.getSubscriptionById = (subscription_id) => {
       throw error;
     });
 };
+
+exports.getSubscriptionByFilter = (filter) => {
+  // console.log("getSubscriptionById subscription_id", subscription_id)
+  return knex(constants.name)
+    .where(filter)
+    .select("*")
+    .catch((error) => {
+      throw error;
+    });
+};

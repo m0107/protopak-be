@@ -21,6 +21,19 @@ exports.createDielineDownloads = (object, { trx } = {}) => {
     });
 };
 
+exports.updateDielineDownloads = (dieline_downloads_id, object, { trx } = {}) => {
+  return (trx || knex)(constants.name)
+    .where({ dieline_downloads_id })
+    .update(object)
+    .then((res) => {
+      console.log("knex updateProduct", res);
+      return res[0];
+    })
+    .catch((error) => {
+      throw error;
+    });
+};
+
 exports.getDielineDownloads = () => {
   return knex(constants.name)
     .where({})

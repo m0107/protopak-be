@@ -13,6 +13,7 @@ const PACDORA_URLS = {
   EXPORT_KNIFE: `${PACDORA_BASE_URL}/user/projects/export/knife`,
   EXPORT_AI: `${PACDORA_BASE_URL}/user/projects/export/ai`,
   EXPORT_DXF: `${PACDORA_BASE_URL}/user/projects/export/dxf`,
+
   UPLOAD_IMG: `${PACDORA_BASE_URL}/upload/img`,
   UPLOAD_IMG_BASE64: `${PACDORA_BASE_URL}/upload/img/base64`,
   DELETE_IMG: `${PACDORA_BASE_URL}/upload/img`,
@@ -100,7 +101,81 @@ async function exportProjectsAsPDF({ projectIds, taskId, config = {} }) {
   }
 }
 
-async function downloadKnife({ projectIds, taskId,config = {} }) {
+async function exportProjectsAsKnife({ projectIds, taskId, config = {} }) {
+  const url = PACDORA_URLS.EXPORT_KNIFE;
+
+  const data = {
+    config,
+  };
+
+  if (taskId) {
+    data.taskId = taskId;
+  } else {
+    data.projectIds = projectIds;
+  }
+
+  try {
+    const response = await axios.post(url, data, { headers });
+    return response.data;
+  } catch (error) {
+    console.error("Export failed:", error.response?.data || error.message);
+    throw error;
+  }
+}
+
+async function exportProjectsAsAi({ projectIds, taskId, config = {} }) {
+  const url = PACDORA_URLS.EXPORT_AI;
+
+  const data = {
+    config,
+  };
+
+  if (taskId) {
+    data.taskId = taskId;
+  } else {
+    data.projectIds = projectIds;
+  }
+
+  try {
+    const response = await axios.post(url, data, { headers });
+    return response.data;
+  } catch (error) {
+    console.error("Export failed:", error.response?.data || error.message);
+    throw error;
+  }
+}
+
+async function exportProjectsAsDxf({ projectIds, taskId, config = {} }) {
+  const url = PACDORA_URLS.EXPORT_DXF;
+
+  const data = {
+    // config,
+  };
+
+  console.log("{ projectIds, taskId, config = {} }", {
+    projectIds,
+    taskId,
+    config,
+    url,
+    data,
+  });
+
+  if (taskId) {
+    data.taskId = taskId;
+  } else {
+    data.projectId = projectIds[0];
+  }
+
+  try {
+    const response = await axios.post(url, data, { headers });
+    return response.data;
+  } catch (error) {
+    console.error("Export failed:", error.response?.data || error.message);
+    throw error;
+  }
+}
+
+async function downloadKnife({ projectIds, taskId, config = {} }) {
   const url = PACDORA_URLS.EXPORT_KNIFE;
   // console.log("EXPORT_KNIFE_STATUS url", taskId, url);
 
@@ -125,13 +200,57 @@ async function downloadKnife({ projectIds, taskId,config = {} }) {
 }
 
 async function checkPdfStatus(taskId) {
-  const url = PACDORA_URLS.EXPORT_PDF_STATUS;
-  console.log("EXPORT_KNIFE_STATUS url", taskId, url);
+  const url = PACDORA_URLS.EXPORT_PDF;
+  try {
+    // console.log({
+    //   url,
+    //   headers,
+    // });
+    const response = await axios.get(`${url}?taskId=${taskId}`, { headers });
+    return response.data;
+  } catch (error) {
+    console.error("Export failed:", error.response?.data || error.message);
+    throw error;
+  }
+}
 
+async function checkAiStatus(taskId) {
+  const url = PACDORA_URLS.EXPORT_AI;
+  try {
+    // console.log({
+    //   url,
+    //   headers,
+    // });
+    const response = await axios.get(`${url}?taskId=${taskId}`, { headers });
+    return response.data;
+  } catch (error) {
+    console.error("Export failed:", error.response?.data || error.message);
+    throw error;
+  }
+}
+
+async function checkDxfStatus(taskId) {
+  const url = PACDORA_URLS.EXPORT_DXF;
+  try {
+    // console.log({
+    //   url,
+    //   headers,
+    // });
+    const response = await axios.get(`${url}?taskId=${taskId}`, { headers });
+    return response.data;
+  } catch (error) {
+    console.error("Export failed:", error.response?.data || error.message);
+    throw error;
+  }
+}
+
+async function checkKnifeStatus(taskId) {
+  const url = PACDORA_URLS.EXPORT_KNIFE;
   try {
     console.log({
-      url, headers
-    })
+      url,
+      headers,
+    });
     const response = await axios.get(`${url}?taskId=${taskId}`, { headers });
     return response.data;
   } catch (error) {
@@ -555,6 +674,9 @@ module.exports = {
   // getProductsList,
 
   exportProjectsAsPDF,
+  exportProjectsAsKnife,
+  exportProjectsAsAi,
+  exportProjectsAsDxf,
 
   updateUserBaseInfo,
   getUserProjects,
@@ -572,5 +694,8 @@ module.exports = {
   getWorkbenchTemplates,
 
   checkPdfStatus,
-  downloadKnife
+  checkAiStatus,
+  checkDxfStatus,
+  checkKnifeStatus,
+  downloadKnife,
 };
