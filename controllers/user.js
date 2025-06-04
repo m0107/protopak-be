@@ -28,6 +28,7 @@ const {
   checkKnifeStatus,
 } = require("../services/pacdora");
 const googleAuth = require("../services/google_auth");
+const passwordHelper = require("../helpers/passwordGenerator");
 const crypto = require("crypto");
 
 let myCache = new SingletonCache().getInstance();
@@ -198,6 +199,7 @@ const login = async (req, res) => {
   }
 };
 
+
 const googleLogin = async (req, res) => {
   try {
     // g_auth_token
@@ -263,6 +265,80 @@ const googleLogin = async (req, res) => {
           },
         });
     }
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({
+      status: false,
+      message: "something went wrong while logging in! Please try again.",
+      data: null,
+    });
+  }
+};
+
+const googleSignup = async (req, res) => {
+  console.log("googleSignup()",);
+  try {
+    const body = req.body;
+    let validator = Joi.object({
+      g_auth_token: Joi.string().required(),
+    });
+    validator = validator.validate({
+      g_auth_token: body.g_auth_token,
+    });
+
+    if (validator.error) {
+      return res.status(400).json({
+        status: false,
+        message: validator.error.message,
+        data: null,
+      });
+    }
+
+    const googleAuthVerifyTokenResult = await googleAuth.verifyToken(
+      body.g_auth_token
+    );
+
+    const { email } = googleAuthVerifyTokenResult;
+
+    const adminUserExist = await adminUserRepo.readAdminByEmail(email);
+    if (adminUserExist) {
+      return res.status(400).json({
+        status: false,
+        message: "Email already exists!",
+        data: null,
+      });
+    }
+
+    const adminUser = await adminUserRepo.createAdminUser({
+      password: passwordHelper.generatePassword(12),
+      email: email,
+      pacdora_user_id: createId(),
+    });
+
+    const token = await jwt.sign(
+      {
+        id: adminUser.user_id,
+        email: adminUser.email,
+      },
+      process.env.JWT_TOKEN,
+      {
+        expiresIn: parseInt(process.env.REFRESH_TOKEN_EXPIRY),
+      }
+    );
+
+    return res
+      .status(200)
+      .header("Access-Control-Expose-Headers", "token")
+      .setHeader("token", token)
+      .json({
+        status: true,
+        message: "Registered Succssfully!.",
+        data: {
+          user_id: adminUser.user_id,
+          email: adminUser.email,
+          pacdora_user_id: adminUser.pacdora_user_id,
+        },
+      });
   } catch (err) {
     console.log(err);
     return res.status(500).json({
@@ -836,9 +912,10 @@ const getUserSubscriptions = async (req, res) => {
   try {
     const { user_id } = req.user;
 
-    const usersShoppingCart = await userSubscriptionsRepo.getSubscriptionByFilter({
-      user_id,
-    });
+    const usersShoppingCart =
+      await userSubscriptionsRepo.getSubscriptionByFilter({
+        user_id,
+      });
 
     console.log({ usersShoppingCart });
 
@@ -1210,6 +1287,7 @@ module.exports = {
   createUser,
   login,
   googleLogin,
+  googleSignup,
   deleteUser,
   logoutUser,
 
@@ -1234,5 +1312,5 @@ module.exports = {
   downloadDieline,
   getUserDieline,
 
-  getUserSubscriptions
+  getUserSubscriptions,
 };

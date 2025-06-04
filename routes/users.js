@@ -32,12 +32,11 @@ router.post("/verifyPayment", [auth], user.verifyPayment);
 //
 router.post("/shoppingCartList", [auth], user.shoppingCartList);
 router.post("/google/auth", user.googleLogin);
+router.post("/google/authRegister", user.googleSignup);
 //
 router.post("/subscriptions", [], user.getSubscriptions);
 router.post("/buySubscription", [auth], user.buySubscription);
 router.post("/verifySubscriptionPayment", [auth], user.verifySubscriptionPayment);
-
-
 
 //Shop by category
 
