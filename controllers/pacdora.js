@@ -1,5 +1,5 @@
 const userProductsRepo = require("../repositories/user_products_repo");
-const { getUserProjects, exportProjectsAsPDF, deleteUploadedProjects, downloadKnife } = require("../services/pacdora");
+const { getUserProjects, exportProjectsAsPDF, deleteUploadedProjects } = require("../services/pacdora");
 
 const getUsersProducts = async (req, res) => {
   // console.log(">>>>>getPacdoraProducts");
@@ -9,9 +9,9 @@ const getUsersProducts = async (req, res) => {
     const productList = await getUserProjects({
       userId: req.user.pacdora_user_id,
     });
-    console.log("productList", productList);
-    const resultsfse = await userProductsRepo.getActiveProductsList(productList.data.map(o => String(o.id)))
-    console.log("resultsfse", resultsfse);
+    // console.log("productList", productList);
+    // const resultsfse = await userProductsRepo.getActiveProductsList(productList.data.map(o => String(o.id)))
+    // console.log("resultsfse", resultsfse);
     //getActiveProductsList
     
 

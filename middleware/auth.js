@@ -31,7 +31,7 @@ module.exports = async (req, res, next) => {
     // console.log(">>>>>>>>token:",token);
 
     const decoded = jwt.verify(token, process.env.JWT_TOKEN);
-    // console.log({ decoded });
+    console.log({ decoded });
     const userId = decoded.id;
 
     const user = await adminUserRepo.readAdminUserById(decoded.id);

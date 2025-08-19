@@ -10,8 +10,8 @@ services:
       - db_app:/var/lib/postgresql/data
     environment:
       TZ: "Asia/Calcutta"
-      POSTGRES_DB: ptotopak_db
+      POSTGRES_DB: protopak_db
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: fostgres
+      POSTGRES_PASSWORD: postgres
 volumes:
   db_app:

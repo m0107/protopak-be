@@ -8,6 +8,8 @@ router.post("/login", user.login);
 router.post("/register", user.createUser);
 
 router.post("/getAvailableDielineCount",[auth], user.getPendingDielieDownloadCount);
+router.post("/userTokenValid", [auth], user.isUserTokenValid);
+
 router.post("/getDieline",[auth], user.getUserDieline);
 router.post("/getUserSubscriptions",[auth], user.getUserSubscriptions);
 

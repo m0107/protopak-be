@@ -79,7 +79,7 @@ exports.getActiveProductsList = (modelIds) => {
       "sc.user_products_id"
     )
     .then((res) => {
-      console.log("knex getActiveProductsList", res);
+      // console.log("knex getActiveProductsList", res);
       return res;
     });
 };

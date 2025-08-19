@@ -24,8 +24,8 @@ const {
   exportProjectsAsDxf,
   checkPdfStatus,
   checkAiStatus,
-  checkDxfStatus,
-  checkKnifeStatus,
+  // checkDxfStatus,
+  // checkKnifeStatus,
 } = require("../services/pacdora");
 const googleAuth = require("../services/google_auth");
 const passwordHelper = require("../helpers/passwordGenerator");
@@ -199,7 +199,6 @@ const login = async (req, res) => {
   }
 };
 
-
 const googleLogin = async (req, res) => {
   try {
     // g_auth_token
@@ -276,7 +275,7 @@ const googleLogin = async (req, res) => {
 };
 
 const googleSignup = async (req, res) => {
-  console.log("googleSignup()",);
+  console.log("googleSignup()");
   try {
     const body = req.body;
     let validator = Joi.object({
@@ -526,6 +525,9 @@ const updateProjectDetails = async (req, res) => {
     const project = projects.data[0];
     console.log("project", project);
 
+    //pdf_file_url
+    // ai_file_url
+
     const {
       size,
       size_options,
@@ -565,6 +567,29 @@ const updateProjectDetails = async (req, res) => {
       image_url: project.screenshot,
       project_name: project.name,
     };
+
+    if (size !== project.size) {
+      //Change the product dieline after changing size
+      let downloadResult =
+        await downloadDinelineRepo.getDielineDownloadsByFilter({
+          project_id: String(project_id),
+        });
+      if (downloadResult.length) {
+        downloadResult = downloadResult[0];
+        console.log("Removing Previous Dieline download urls!");
+        await downloadDinelineRepo.updateDielineDownloads(
+          downloadResult.dieline_downloads_id,
+          {
+            pdf_task_id: null,
+            pdf_file_url: null,
+            // ai_task_id: null,
+            // ai_file_url: null,
+            dxf_task_id: null,
+            dxf_file_url: null,
+          }
+        );
+      }
+    }
 
     console.log(req.body, "insert into database", userProjuctObj);
 
@@ -1097,6 +1122,24 @@ const getPendingDielieDownloadCount = async (req, res) => {
   }
 };
 
+const isUserTokenValid = async (req, res) => {
+  try {
+    // const { user_id } = req.user;
+    return res.status(200).json({
+      status: true,
+      message: "User token is valid!",
+      data: req.user,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      status: false,
+      message: "something went wrong while creating checkout",
+      data: null,
+    });
+  }
+};
+
 const getUserDieline = async (req, res) => {
   try {
     const { user_id } = req.user;
@@ -1132,14 +1175,23 @@ const downloadDieline = async (req, res) => {
       }
     );
 
-    console.log("downloadResult", downloadResult);
+    downloadResult = downloadResult.length ? downloadResult[0] : null;
+    // if (downloadResult.length) downloadResult = downloadResult[0];
 
-    if (downloadResult.length) {
-      downloadResult = downloadResult[0];
-      console.log("^^^^^Project Exists!");
+    // console.log("downloadResult", downloadResult);
+
+    if (
+      downloadResult &&
+      downloadResult.pdf_task_id &&
+      downloadResult.dxf_task_id
+    ) {
+      // downloadResult = downloadResult[0];
+      // console.log("^^^^^Project Exists!");
+      console.log("checking&Updating dieline files from taskid!");
       const updates = {};
 
       if (!downloadResult.pdf_file_url) {
+        console.log("Checking Pdf file status!");
         const pdfStatus = await checkPdfStatus(downloadResult.pdf_task_id);
         if (pdfStatus.data && pdfStatus.data.filePath) {
           updates.pdf_file_url = pdfStatus.data.filePath;
@@ -1169,7 +1221,7 @@ const downloadDieline = async (req, res) => {
       //   }
       // }
 
-      console.log("updates obj ", updates, Object.keys(updates).length);
+      // console.log("updates obj ", updates, Object.keys(updates).length);
 
       // if (!downloadResult.knife_file_url) {
       //   const knifeStatus = await checkKnifeStatus(downloadResult.pdf_task_id);
@@ -1222,7 +1274,7 @@ const downloadDieline = async (req, res) => {
     const userProjectsDetails = await userProductsRepo.findProductByFilter({
       project_id: project_id,
     });
-    console.log("userProjectsDetails", userProjectsDetails);
+    // console.log("userProjectsDetails", userProjectsDetails);
     if (!userProjectsDetails) {
       return res.status(400).json({
         status: false,
@@ -1234,44 +1286,56 @@ const downloadDieline = async (req, res) => {
     const pdfExportData = await exportProjectsAsPDF({
       projectIds: [project_id],
     });
-    const knifeExportData = await exportProjectsAsKnife({
-      projectIds: [project_id],
-    });
+    // const knifeExportData = await exportProjectsAsKnife({
+    //   projectIds: [project_id],
+    // });
     const dxfExportData = await exportProjectsAsDxf({
       projectIds: [project_id],
     });
-    const aiExportData = await exportProjectsAsAi({
-      projectIds: [project_id],
-    });
+    // const aiExportData = await exportProjectsAsAi({
+    //   projectIds: [project_id],
+    // });
 
     console.log({
       pdfExportData,
-      knifeExportData,
+      // knifeExportData,
       dxfExportData,
-      aiExportData,
+      // aiExportData,
     });
 
-    const insertObj = {
-      user_id,
-      user_products_id: userProjectsDetails.user_products_id,
-      project_id: project_id,
-      pdf_task_id: pdfExportData.data[0].taskId,
-      // knife_task_id: knifeExportData.data[0].taskId, //not added to migartaion
-      ai_task_id: aiExportData.data[0].taskId,
-      dxf_task_id: dxfExportData.data.taskId,
-      dxf_file_url: dxfExportData.data.filePath,
-    };
+    if (downloadResult) {
+      downloadResult = await downloadDinelineRepo.updateDielineDownloads(
+        downloadResult.dieline_downloads_id,
+        {
+          pdf_task_id: pdfExportData.data[0].taskId,
+          // pdf_file_url: null,
+          // ai_task_id: aiExportData.data[0].taskId,
+          // ai_file_url: null,
+          dxf_task_id: dxfExportData.data.taskId,
+          dxf_file_url: dxfExportData.data.filePath,
+        }
+      );
+    } else {
+      const insertObj = {
+        user_id,
+        user_products_id: userProjectsDetails.user_products_id,
+        project_id: project_id,
+        pdf_task_id: pdfExportData.data[0].taskId,
+        // knife_task_id: knifeExportData.data[0].taskId, //not added to migartaion
+        // ai_task_id: aiExportData.data[0].taskId,
+        dxf_task_id: dxfExportData.data.taskId,
+        dxf_file_url: dxfExportData.data.filePath ?? null,
+      };
 
-    console.log("insertObj", insertObj);
-
-    const insertedObj = await downloadDinelineRepo.createDielineDownloads(
-      insertObj
-    );
+      downloadResult = await downloadDinelineRepo.createDielineDownloads(
+        insertObj
+      );
+    }
 
     return res.status(200).json({
       status: true,
       message: "Dieline Download Initiated, Please try again after 1min",
-      data: insertedObj,
+      data: downloadResult,
     });
   } catch (err) {
     console.log(err.message);
@@ -1313,4 +1377,5 @@ module.exports = {
   getUserDieline,
 
   getUserSubscriptions,
+  isUserTokenValid
 };
