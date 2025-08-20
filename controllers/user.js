@@ -19,8 +19,8 @@ const { razorpay } = require("../services/razorpay/index");
 const {
   getUserProjects,
   exportProjectsAsPDF,
-  exportProjectsAsKnife,
-  exportProjectsAsAi,
+  // exportProjectsAsKnife,
+  // exportProjectsAsAi,
   exportProjectsAsDxf,
   checkPdfStatus,
   checkAiStatus,
@@ -752,7 +752,7 @@ const checkout = async (req, res) => {
 
     const OrderOptions = {
       amount: amount * 100,
-      currency: "USD",
+      currency: "INR",
       receipt: receiptTemp, // your internal reference
     };
 
